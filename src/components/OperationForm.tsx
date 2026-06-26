@@ -57,8 +57,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
   
   // New calculations for the requested breakdown
   const providerFee = netTransferToClient * 0.0699;
-  const netProfitWithDown = totalInstallmentAmount - packageAmount - providerFee;
-  const netProfitAfterDown = netProfitWithDown - parsedDownPayment;
+  const netProfit = totalInstallmentAmount - packageAmount - providerFee;
 
   // Handle group change with downpayment safety clamping
   const handleGroupChange = (id: string) => {
@@ -409,7 +408,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                   حاسبة مبيعات تفاعلية - معاينة العقد المالي:
                 </p>
                 <p className="text-[10px] text-neutral-500 leading-relaxed font-medium">
-                  الأرقام أدناه توضح توزيع الأرباح والرسوم والتدفقات النقدية المقدرة لهذه المجموعة. <span className="text-amber-800 font-bold">لم يتم حفظ أو تسجيل العملية في كشوفات المشروع حتى الآن</span>. اضغط على زر "تم - تسجيل عملية البيع" بالأسفل لحفظها في التقارير المالية.
+                  الأرقام أدناه توضح توزيع الأرباح والرسوم والتدفقات النقدية المقدرة لهذه المجموعة. <span className="text-amber-800 font-bold">لم يتم حفظ أو تسجيل العملية في كشوفات المشروع حتى الآن</span>. اضغط على زر "اضغط لتسجيل العملية" بالأسفل لحفظها في التقارير المالية.
                 </p>
               </div>
 
@@ -435,12 +434,15 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                   <p className="text-sm font-black text-red-600">{(providerFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] text-neutral-400 font-bold">الأرباح متضمنة الدفعة الأولى</p>
-                  <p className="text-sm font-black text-emerald-600">{netProfitWithDown.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                  {/* Empty cell spacer to balance grid or provide info */}
                 </div>
-                <div className="space-y-1 col-span-2">
-                  <p className="text-[10px] text-neutral-450 font-black">الأرباح بعد خصم الدفعة الأولى</p>
-                  <p className={`text-sm font-black ${netProfitAfterDown >= 0 ? "text-emerald-700" : "text-red-650"}`}>{netProfitAfterDown.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                
+                <div className="space-y-1 col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/40 text-center" dir="rtl">
+                  <p className="text-[10px] text-[#059669] font-black">صافي أرباح التاجر النهائية المحققة</p>
+                  <p className="text-lg font-black text-emerald-700 mt-0.5">{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                  <p className="text-[8px] text-neutral-500 mt-1 leading-relaxed">
+                    * الدفعة الأولى يتحملها العميل بالكامل وبالتالي لا تخصم من أرباحك الصافية.
+                  </p>
                 </div>
               </div>
             </>
@@ -459,7 +461,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               <span>جاري تسجيل البيانات المالية...</span>
             </>
           ) : (
-            "تم - تسجيل عملية البيع"
+            "اضغط لتسجيل العملية"
           )}
         </button>
       </form>
