@@ -1,0 +1,8 @@
+{
+  "name": "SalesManager 1",
+  "description": "منصة احترافية لإدارة المبيعات، عمليات التقسيط، حساب الدفعات الشهرية، ومتابعة سجلات العملاء والتقارير المالية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "clients": [
+    {
+      "id": "CL-8821",
+      "name": "أحمد محمد العتيبي",
+      "date": "2023-10-15",
+      "activeOperationsCount": 2
+    },
+    {
+      "id": "CL-9042",
+      "name": "سارة خالد الشمري",
+      "date": "2023-10-10",
+      "activeOperationsCount": 1
+    },
+    {
+      "id": "CL-7731",
+      "name": "فيصل بن عبد العزيز",
+      "date": "2023-09-25",
+      "activeOperationsCount": 3
+    },
+    {
+      "id": "CL-4412",
+      "name": "نورة الصالح",
+      "date": "2023-10-05",
+      "activeOperationsCount": 1
+    },
+    {
+      "id": "CL-3321",
+      "name": "عبد الله المنصور",
+      "date": "2023-10-18",
+      "activeOperationsCount": 1
+    }
+  ],
+  "operations": [
+    {
+      "id": "C-8921",
+      "clientId": "CL-8821",
+      "clientName": "أحمد محمد العتيبي",
+      "date": "2023-10-24",
+      "status": "مكتمل",
+      "packageAmount": 5700,
+      "totalInstallmentAmount": 8230,
+      "downPayment": 1000,
+      "remainingAmount": 7230,
+      "provider": "تابي",
+      "monthlyInstallment": 602.5,
+      "durationMonths": 12
+    },
+    {
+      "id": "C-8922",
+      "clientId": "CL-9042",
+      "clientName": "سارة خالد الشمري",
+      "date": "2023-10-23",
+      "status": "مكتمل",
+      "packageAmount": 3000,
+      "totalInstallmentAmount": 4500,
+      "downPayment": 1000,
+      "remainingAmount": 3500,
+      "provider": "تمارا",
+      "monthlyInstallment": 291.6,
+      "durationMonths": 12
+    },
+    {
+      "id": "C-8923",
+      "clientId": "CL-7731",
+      "clientName": "فيصل بن عبد العزيز",
+      "date": "2023-10-22",
+      "status": "قيد المراجعة",
+      "packageAmount": 5700,
+      "totalInstallmentAmount": 8230,
+      "downPayment": 1500,
+      "remainingAmount": 6730,
+      "provider": "تابي",
+      "monthlyInstallment": 560.8,
+      "durationMonths": 12
+    },
+    {
+      "id": "C-8924",
+      "clientId": "CL-4412",
+      "clientName": "نورة الصالح",
+      "date": "2023-10-21",
+      "status": "مكتمل",
+      "packageAmount": 5700,
+      "totalInstallmentAmount": 8230,
+      "downPayment": 1200,
+      "remainingAmount": 7030,
+      "provider": "تابي",
+      "monthlyInstallment": 585.83,
+      "durationMonths": 12
+    }
+  ]
+}
