@@ -427,16 +427,13 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                       <p className="text-[9px] text-neutral-400 font-bold">رسوم مزود الخدمة (6.99%)</p>
                       <p className="text-xs font-black text-red-600">{totalGroupFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-emerald-700 font-black">الأرباح مع الدفعة الأولى</p>
-                      <p className="text-xs font-black text-emerald-600">
+                    <div className="space-y-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
+                      <p className="text-[10px] text-emerald-700 font-black">صافي أرباح التاجر النهائية المحققة</p>
+                      <p className="font-black text-emerald-700 text-sm mt-0.5">
                         {totalGroupProfitWithDown.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                       </p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-rose-800 font-black">الأرباح بعد خصم الدفعة الأولى</p>
-                      <p className={`text-xs font-extrabold ${totalGroupProfitAfterDown >= 0 ? "text-emerald-700" : "text-red-600 font-bold animate-pulse"}`}>
-                        {totalGroupProfitAfterDown.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                      <p className="text-[7.5px] text-neutral-400 mt-0.5 leading-relaxed">
+                        * الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك الصافية.
                       </p>
                     </div>
                   </div>
@@ -493,7 +490,7 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                     <th className="p-4 text-center">مزود التقسيط</th>
                     <th className="p-4 text-left">الدفعة الأولى</th>
                     <th className="p-4 text-left">رسوم المزود</th>
-                    <th className="p-4 text-left font-sans">الأرباح بعد الخصم</th>
+                    <th className="p-4 text-left font-sans">صافي أرباح التاجر</th>
                     <th className="p-4 text-center">القسط شهريّ</th>
                     <th className="p-4 text-center">الإجراء</th>
                   </tr>
@@ -627,16 +624,13 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                           {getOperationFee(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[9px] text-emerald-700 font-extrabold text-center">الأرباح مع الدفعة الأولى</p>
-                        <p className="font-black text-emerald-600 text-[13px]">
-                          {getOperationProfitWithDownPayment(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                      <div className="space-y-1 col-span-2 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/40 text-center" dir="rtl">
+                        <p className="text-[9px] text-emerald-700 font-extrabold">صافي أرباح التاجر النهائية المحققة</p>
+                        <p className="font-black text-emerald-700 text-sm mt-0.5">
+                          {getOperationProfit(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[9px] text-neutral-900 font-extrabold text-center">الأرباح بعد خصم الدفعة الأولى</p>
-                        <p className={`font-black text-[13px] ${getOperationProfitAfterDownPayment(op) >= 0 ? "text-[#059669]" : "text-red-650"}`}>
-                          {getOperationProfitAfterDownPayment(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                        <p className="text-[7.5px] text-neutral-400 mt-0.5 leading-relaxed">
+                          * الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك الصافية.
                         </p>
                       </div>
                     </div>
