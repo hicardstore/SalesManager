@@ -132,6 +132,11 @@ function MainApp() {
       setLoading(false);
       return;
     }
+
+    if (isLoadingProject) {
+      // Wait for workspace project details to load first so we query with the correct projectId
+      return;
+    }
     
     setLoading(true);
     const workspaceId = activeProject ? activeProject.id : user.id;
@@ -176,7 +181,7 @@ function MainApp() {
         fetchedOps.push({
           ...(data as any),
           id: doc.id,
-          date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+          date: data.date || (data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString())
         } as Operation);
       });
       // Sort client-side to protect indexing constraints
@@ -189,7 +194,7 @@ function MainApp() {
     });
 
     return () => unsubscribe();
-  }, [user, activeProject]);
+  }, [user, activeProject, isLoadingProject]);
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -242,8 +247,8 @@ function MainApp() {
       await addDoc(opsRef, dbPayload);
       return true;
     } catch (e) {
-      console.error("Firestore serialization failed, falling back to local storage:", e);
-      return saveLocally();
+      console.error("Firestore serialization failed:", e);
+      return false;
     }
   };
 
@@ -277,16 +282,18 @@ function MainApp() {
       setOperations((prev) => prev.filter(op => op.id !== opId));
       return true;
     } catch (e) {
-      console.error("Firestore delete failed, falling back to local storage:", e);
-      return deleteLocally();
+      console.error("Firestore delete failed:", e);
+      return false;
     }
   };
 
-  if (authLoading) {
+  const isRealCloudUser = user && !user.id.startsWith("local_") && user.id !== "offline_guest_user_id";
+
+  if (authLoading || (isRealCloudUser && isLoadingProject)) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center space-y-4">
         <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-900 animate-spin rounded-full"></div>
-        <p className="text-xs font-bold text-neutral-400">جاري الاتصال بالنظام السحابي...</p>
+        <p className="text-xs font-bold text-neutral-400">جاري الاتصال بالنظام السحابي ومزامنة مساحة العمل...</p>
       </div>
     );
   }
@@ -320,7 +327,10 @@ function MainApp() {
           )}
 
           {activeTab === "settings" && (
-            <Settings onLogoutReq={() => setShowLogoutConfirm(true)} />
+            <Settings 
+              onLogoutReq={() => setShowLogoutConfirm(true)} 
+              activeProject={activeProject}
+            />
           )}
         </div>
       </main>

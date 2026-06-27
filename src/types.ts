@@ -36,6 +36,7 @@ export interface Operation {
   provider: InstallmentProvider;
   monthlyInstallment: number;
   durationMonths: number;
+  commissionFee?: number; // Commission fee recorded with the operation
 }
 
 export interface FinancialStats {

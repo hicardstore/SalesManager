@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: credential.user.email || email,
         name: credential.user.displayName || email.split("@")[0]
       };
+      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: credential.user.email || email,
             name: email.split("@")[0]
           };
+          localStorage.removeItem("current_local_user");
           setUser(userInfo);
           return true;
         } catch (regErr: any) {
@@ -140,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: credential.user.email || email,
         name: email.split("@")[0]
       };
+      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {
@@ -178,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: firebaseUser.email,
         name: firebaseUser.displayName
       };
+      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {

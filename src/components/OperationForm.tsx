@@ -22,6 +22,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
 
   // 3. Down Payment State
   const [downPayment, setDownPayment] = useState<string>("");
+  const [commissionFee, setCommissionFee] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successAnimation, setSuccessAnimation] = useState(false);
@@ -51,13 +52,14 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
     : (selectedGroup ? selectedGroup.totalInstallmentAmount : 0);
 
   const parsedDownPayment = Math.max(0, parseFloat(downPayment) || 0);
+  const parsedCommissionFee = Math.max(0, parseFloat(commissionFee) || 0);
   const netTransferToClient = Math.max(0, packageAmount - parsedDownPayment);
   const durationMonths = 12;
   const monthlyInstallment = parseFloat((netTransferToClient / durationMonths).toFixed(2));
   
   // New calculations for the requested breakdown
   const providerFee = netTransferToClient * 0.0699;
-  const netProfit = totalInstallmentAmount - packageAmount - providerFee;
+  const netProfit = totalInstallmentAmount - packageAmount - providerFee - parsedCommissionFee;
 
   // Handle group change with downpayment safety clamping
   const handleGroupChange = (id: string) => {
@@ -111,6 +113,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
       clientName: `عملية مبيعات ${groupLabel}`,
       packageAmount,
       downPayment: parsedDownPayment,
+      commissionFee: parsedCommissionFee,
       provider,
       status: "مكتمل",
       totalInstallmentAmount,
@@ -128,6 +131,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
           // Reset form to default values for next transaction
           setSelectedGroupId(PREDEFINED_GROUPS[0]?.id || "3000");
           setDownPayment("");
+          setCommissionFee("");
           setCustomPackageAmount("");
           setCustomTotalInstallmentAmount("");
         }, 400); 
@@ -383,6 +387,29 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
           </div>
         </div>
 
+        {/* Step 4: Commission Fee */}
+        <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-sm space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-neutral-900 text-white flex items-center justify-center text-sm font-bold shadow-sm">4</div>
+            <h3 className="text-sm font-bold text-neutral-900">رسوم العمولة</h3>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-neutral-400">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <input
+              type="number"
+              inputMode="decimal"
+              lang="en"
+              placeholder="0.00"
+              value={commissionFee}
+              onChange={(e) => setCommissionFee(e.target.value)}
+              className="w-full text-lg h-14 rounded-xl border border-neutral-200 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5 bg-white font-black text-center"
+            />
+          </div>
+        </div>
+
         {/* Live Interactive Financial Summary Card */}
         <div className="p-6 rounded-2xl border border-neutral-200 bg-white space-y-5 shadow-xs">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
@@ -434,7 +461,8 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                   <p className="text-sm font-black text-red-600">{(providerFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                 </div>
                 <div className="space-y-1">
-                  {/* Empty cell spacer to balance grid or provide info */}
+                  <p className="text-[10px] text-neutral-400 font-bold">رسوم العمولة</p>
+                  <p className="text-sm font-black text-red-600">{(parsedCommissionFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                 </div>
                 
                 <div className="space-y-1 col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/40 text-center" dir="rtl">

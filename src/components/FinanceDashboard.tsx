@@ -125,10 +125,11 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
   };
 
   const getOperationProfit = (op: Operation) => {
-    // صافي أرباح التاجر = إجمالي التمويل - صافي التمويل - رسوم مزود الخدمة
+    // صافي أرباح التاجر = إجمالي التمويل - صافي التمويل - رسوم مزود الخدمة - رسوم العمولة
     // الدفعة الأولى يتحملها العميل بالكامل، فلا تخفض أرباح التاجر
     const grossProfit = op.totalInstallmentAmount - op.packageAmount;
-    return grossProfit - getOperationFee(op);
+    const commission = op.commissionFee || 0;
+    return grossProfit - getOperationFee(op) - commission;
   };
 
   const getOperationProfitWithDownPayment = (op: Operation) => {
@@ -198,6 +199,8 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
   const netProfitAfterDownPayment = filteredByDate.reduce((sum, op) => sum + getOperationProfitAfterDownPayment(op), 0);
   const netProfit = netProfitAfterDownPayment;
   const totalDownPayments = filteredByDate.reduce((sum, op) => sum + op.downPayment, 0);
+  const totalProviderFees = filteredByDate.reduce((sum, op) => sum + getOperationFee(op), 0);
+  const totalCommissionFees = filteredByDate.reduce((sum, op) => sum + (op.commissionFee || 0), 0);
 
   // Dynamically analyze all groups
   const finalGroupsList = PREDEFINED_GROUPS;
@@ -293,7 +296,7 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
       </div>
 
       {/* Main KPI Stats Row Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         
         {/* Stat 1: Sales */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs flex flex-col justify-between h-32 hover:border-neutral-300 transition-colors">
@@ -358,6 +361,36 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
           </div>
         </div>
 
+        {/* Stat 5: Provider Fees */}
+        <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs flex flex-col justify-between h-32 hover:border-neutral-300 transition-colors">
+          <div className="flex justify-between items-center w-full">
+            <span className="text-neutral-400 text-[10px] font-black tracking-wider">رسوم مزودي الخدمة</span>
+            <Calculator className="w-4 h-4 text-neutral-400" />
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+              <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-600 font-black">{totalProviderFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+            </div>
+            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم مزود الخدمة (6.99%)</p>
+          </div>
+        </div>
+
+        {/* Stat 6: Commission Fees */}
+        <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs flex flex-col justify-between h-32 hover:border-neutral-300 transition-colors">
+          <div className="flex justify-between items-center w-full">
+            <span className="text-neutral-400 text-[10px] font-black tracking-wider">رسوم العمولة</span>
+            <Calculator className="w-4 h-4 text-neutral-400" />
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+              <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-600 font-black">{totalCommissionFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+            </div>
+            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم العمولة المسجلة</p>
+          </div>
+        </div>
+
       </div>
 
       {/* Dynamic Group Financial Summaries Section */}
@@ -385,7 +418,8 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
               const totalGroupDown = groupOps.reduce((sum, op) => sum + op.downPayment, 0);
               const totalGroupTransfer = groupOps.reduce((sum, op) => sum + (op.packageAmount - op.downPayment), 0);
               const totalGroupFees = groupOps.reduce((sum, op) => sum + getOperationFee(op), 0);
-              const totalGroupProfitWithDown = totalGroupSales - totalGroupNet - totalGroupFees;
+              const totalGroupCommissions = groupOps.reduce((sum, op) => sum + (op.commissionFee || 0), 0);
+              const totalGroupProfitWithDown = totalGroupSales - totalGroupNet - totalGroupFees - totalGroupCommissions;
               const totalGroupProfitAfterDown = totalGroupProfitWithDown - totalGroupDown;
 
               return (
@@ -423,9 +457,13 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                       <p className="text-[9px] text-neutral-400 font-bold">الصافي للعملاء</p>
                       <p className="text-xs font-black text-amber-600">{totalGroupTransfer.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
-                    <div className="space-y-0.5 col-span-2 border-t border-neutral-50 pt-3">
+                    <div className="space-y-0.5 border-t border-neutral-50 pt-3">
                       <p className="text-[9px] text-neutral-400 font-bold">رسوم مزود الخدمة (6.99%)</p>
                       <p className="text-xs font-black text-red-600">{totalGroupFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                    </div>
+                    <div className="space-y-0.5 border-t border-neutral-50 pt-3">
+                      <p className="text-[9px] text-neutral-400 font-bold">رسوم العمولة</p>
+                      <p className="text-xs font-black text-red-600">{totalGroupCommissions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
                     <div className="space-y-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
                       <p className="text-[10px] text-emerald-700 font-black">صافي أرباح التاجر النهائية المحققة</p>
@@ -490,6 +528,7 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                     <th className="p-4 text-center">مزود التقسيط</th>
                     <th className="p-4 text-left">الدفعة الأولى</th>
                     <th className="p-4 text-left">رسوم المزود</th>
+                    <th className="p-4 text-left">رسوم العمولة</th>
                     <th className="p-4 text-left font-sans">صافي أرباح التاجر</th>
                     <th className="p-4 text-center">القسط شهريّ</th>
                     <th className="p-4 text-center">الإجراء</th>
@@ -532,6 +571,9 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                         </td>
                         <td className="p-4 text-left font-black text-red-600">
                           {getOperationFee(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                        </td>
+                        <td className="p-4 text-left font-black text-red-600">
+                          {(op.commissionFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </td>
                         <td className={`p-4 text-left font-black ${getOperationProfit(op) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                           {getOperationProfit(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
@@ -622,6 +664,12 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                         <p className="text-[10px] text-neutral-400 font-bold">رسوم مزود الخدمة</p>
                         <p className="font-black text-[#dc2626] text-sm">
                           {getOperationFee(op).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                        </p>
+                      </div>
+                      <div className="space-y-1 col-span-2 border-t border-neutral-100 pt-2 flex justify-between items-center px-1">
+                        <p className="text-[10px] text-neutral-400 font-bold">رسوم العمولة</p>
+                        <p className="font-black text-[#dc2626] text-sm">
+                          {(op.commissionFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </p>
                       </div>
                       <div className="space-y-1 col-span-2 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/40 text-center" dir="rtl">
@@ -748,6 +796,12 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                         {getOperationFee(selectedOp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                       </p>
                     </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-neutral-400 font-bold text-center">رسوم العمولة</p>
+                      <p className="font-black text-[#dc2626] text-xl">
+                        {(selectedOp.commissionFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                      </p>
+                    </div>
                     <div className="space-y-1 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
                       <p className="text-[11px] text-[#059669] font-black">صافي أرباح التاجر النهائية</p>
                       <p className="font-black text-emerald-700 text-2xl mt-1">
@@ -789,6 +843,13 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
                     <span className="text-neutral-400">رسوم مزود التقسيط (نسبة مستقطعة)</span>
                     <span className="font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-md">
                       {getOperationFee(selectedOp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1.5 border-b border-neutral-50">
+                    <span className="text-neutral-400">رسوم العمولة المسجلة</span>
+                    <span className="font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-md">
+                      {(selectedOp.commissionFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                     </span>
                   </div>
 

@@ -28,19 +28,29 @@ service cloud.firestore {
     match /operations/{operationId} {
       allow read, list: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
+        resource.data.projectId == request.auth.uid ||
         (resource.data.projectId != null && request.auth.token.email != null && 
-         get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.memberEmails != null &&
+         exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
          request.auth.token.email.lower() in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.memberEmails)
       );
-      allow create: if request.auth != null 
-                    && request.resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.projectId == request.auth.uid ||
+        (request.resource.data.projectId != null && request.auth.token.email != null && 
+         exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) &&
+         request.auth.token.email.lower() in get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.memberEmails)
+      );
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
+        resource.data.projectId == request.auth.uid ||
         (resource.data.projectId != null && request.auth.token.email != null && 
-         get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.memberEmails != null &&
+         exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
          request.auth.token.email.lower() in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.memberEmails)
       );
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.projectId == request.auth.uid
+      );
     }
   }
 }

@@ -2,8 +2,17 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { db } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { ProjectWorkspace } from "../types";
 
-export function Settings({ onLogoutReq }: { onLogoutReq: () => void }) {
+export function Settings({ 
+  onLogoutReq,
+  activeProject
+}: { 
+  onLogoutReq: () => void;
+  activeProject: ProjectWorkspace | null;
+}) {
   const { user, updateUserPassword, deleteUserAccount } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -26,6 +35,81 @@ export function Settings({ onLogoutReq }: { onLogoutReq: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
+  const [collabMsg, setCollabMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const isLocalMode = !user || user.id.startsWith("local_") || user.id === "offline_guest_user_id" || (activeProject && activeProject.id.startsWith("local_proj_"));
+
+  const handleAddMember = async () => {
+    if (!activeProject || !newMemberEmail.trim()) return;
+    setCollabMsg(null);
+    const emailToAdd = newMemberEmail.toLowerCase().trim();
+
+    if (!emailToAdd.includes("@") || emailToAdd.length < 5) {
+      setCollabMsg({ type: "error", text: "صيغة البريد الإلكتروني غير صالحة." });
+      return;
+    }
+
+    const currentEmails = activeProject.memberEmails || [];
+    if (currentEmails.some(e => e.toLowerCase() === emailToAdd)) {
+      setCollabMsg({ type: "error", text: "هذا البريد الإلكتروني مضاف بالفعل في مساحة العمل." });
+      return;
+    }
+
+    setIsUpdatingMembers(true);
+    try {
+      const projectRef = doc(db, "projects", activeProject.id);
+      const updatedEmails = [...currentEmails, emailToAdd];
+      const updatedMembers = [
+        ...(activeProject.members || []),
+        {
+          email: emailToAdd,
+          name: emailToAdd.split("@")[0],
+          role: "عارض" as const,
+          status: "نشط" as const
+        }
+      ];
+
+      await updateDoc(projectRef, {
+        memberEmails: updatedEmails,
+        members: updatedMembers
+      });
+
+      setCollabMsg({ type: "success", text: `تمت إضافة العضو ${emailToAdd} بنجاح!` });
+      setNewMemberEmail("");
+    } catch (err: any) {
+      console.error("Failed to add member to project:", err);
+      setCollabMsg({ type: "error", text: "فشلت إضافة العضو. يرجى التحقق من اتصالك وصلاحياتك." });
+    } finally {
+      setIsUpdatingMembers(false);
+    }
+  };
+
+  const handleRemoveMember = async (emailToRemove: string) => {
+    if (!activeProject) return;
+    setCollabMsg(null);
+    setIsUpdatingMembers(true);
+    try {
+      const projectRef = doc(db, "projects", activeProject.id);
+      const currentEmails = activeProject.memberEmails || [];
+      const updatedEmails = currentEmails.filter(e => e.toLowerCase() !== emailToRemove.toLowerCase());
+      const updatedMembers = (activeProject.members || []).filter(m => m.email.toLowerCase() !== emailToRemove.toLowerCase());
+
+      await updateDoc(projectRef, {
+        memberEmails: updatedEmails,
+        members: updatedMembers
+      });
+
+      setCollabMsg({ type: "success", text: `تم حذف العضو ${emailToRemove} من مساحة العمل.` });
+    } catch (err: any) {
+      console.error("Failed to remove member from project:", err);
+      setCollabMsg({ type: "error", text: "فشل حذف العضو. يرجى المحاولة لاحقاً." });
+    } finally {
+      setIsUpdatingMembers(false);
+    }
+  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +169,7 @@ export function Settings({ onLogoutReq }: { onLogoutReq: () => void }) {
       title: "الربط والخدمات السحابية",
       icon: <Cloud className="w-4 h-4 text-emerald-500" />,
       items: [
-        { label: "المزامنة السحابية (Firebase)", value: "متصل نشط", action: false },
+        { label: "المزامنة السحابية (Firebase)", value: isLocalMode ? "حفظ محلي فقط ⚠️" : "متصل نشط ✅", action: false },
       ]
     },
     {
@@ -125,9 +209,9 @@ export function Settings({ onLogoutReq }: { onLogoutReq: () => void }) {
                   <div className="flex items-center gap-3">
                     {item.value && (
                       <span className={`text-xs font-bold px-2 py-1 rounded-md ${
-                        item.value === "مربوط" || item.value === "متصل نشط" 
+                        item.value.includes("نشط") || item.value === "مربوط" 
                           ? "bg-emerald-50 text-emerald-600" 
-                          : "bg-neutral-100 text-neutral-400"
+                          : "bg-amber-50 text-amber-600"
                       }`}>{item.value}</span>
                     )}
                     {item.action && (
@@ -139,6 +223,135 @@ export function Settings({ onLogoutReq }: { onLogoutReq: () => void }) {
             </div>
           </div>
         ))}
+
+        {/* 1. Cloud Sync Diagnostic Card */}
+        <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+            <div className={`p-2 rounded-xl ${isLocalMode ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-neutral-900 text-sm">حالة المزامنة السحابية والربط</h3>
+              <p className="text-xs text-neutral-400 font-medium">التحقق من حالة الاتصال وقابلية مشاركة البيانات</p>
+            </div>
+          </div>
+
+          {isLocalMode ? (
+            <div className="space-y-3" dir="rtl">
+              <div className="p-3 bg-amber-50/70 border border-amber-200/50 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-amber-800">وضعية العمل المحلي النشط (غير متصل بالسحابية)</p>
+                  <p className="text-[11px] text-amber-700 font-bold leading-relaxed">
+                    التطبيق يعمل حالياً على حفظ البيانات في ذاكرة هذا الجهاز فقط (Local Storage). لن تظهر العمليات التي تسجلها على هواتف أخرى، ولن تظهر لك أي عمليات يسجلها أصدقاؤك.
+                  </p>
+                </div>
+              </div>
+              <div className="p-3.5 bg-neutral-50 rounded-xl space-y-1.5 border border-neutral-150/50 text-right">
+                <p className="text-xs font-black text-neutral-800">💡 كيف تحل هذه المشكلة وتفعل المزامنة؟</p>
+                <ul className="text-[11px] text-neutral-500 space-y-1 pr-4 leading-relaxed font-bold list-disc">
+                  <li>تأكد من تفعيل موفر البريد الإلكتروني <span className="font-black text-neutral-700">Email/Password</span> في قسم Authentication بـ Firebase Console الخاص بك.</li>
+                  <li>بعد تفعيله، قم بتسجيل الخروج من الحساب الحالي ثم قم بإنشاء حساب جديد بالبريد الإلكتروني للربط السحابي الحقيقي والمستقر.</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3" dir="rtl">
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/50 rounded-xl flex items-start gap-3">
+                <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-right">
+                  <p className="text-xs font-black text-emerald-850">مزامنة سحابية نشطة ومباشرة (Firebase)</p>
+                  <p className="text-[11px] text-emerald-700 font-bold leading-relaxed">
+                    حسابك متصل بقاعدة البيانات السحابية الحية بنجاح! جميع العمليات التي تسجلها تظهر في الوقت الفعلي على جميع الأجهزة المفتوحة بنفس الحساب دون أي تأخير.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 2. Team Collaboration & Share Card */}
+        {!isLocalMode && activeProject && (
+          <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
+            <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+              <div className="p-2 rounded-xl bg-neutral-900 text-white">
+                <User className="w-5 h-5" />
+              </div>
+              <div className="text-right">
+                <h3 className="font-bold text-neutral-900 text-sm">مشاركة فريق العمل (التعاون السحابي)</h3>
+                <p className="text-xs text-neutral-400 font-medium">دعوة أصدقائك أو شركائك لرؤية وتسجيل العمليات معك</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-right">
+              <div className="flex flex-col gap-1 p-3 bg-neutral-50 rounded-xl border border-neutral-100">
+                <span className="text-[10px] font-black text-neutral-400">اسم مساحة العمل الحالية</span>
+                <span className="text-xs font-black text-neutral-800">{activeProject.name}</span>
+                <span className="text-[10px] text-neutral-400 font-bold mt-0.5">المالك: {activeProject.ownerEmail}</span>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-black text-neutral-700 block">الأعضاء الحاليين بمساحة العمل ({activeProject.memberEmails?.length || 0})</span>
+                <div className="divide-y divide-neutral-50 border border-neutral-100 rounded-xl overflow-hidden bg-white">
+                  {(activeProject.memberEmails || []).map((email) => {
+                    const isOwner = email.toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim();
+                    const isMe = email.toLowerCase().trim() === (user?.email || "").toLowerCase().trim();
+                    const canDelete = !isOwner && (user?.email || "").toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim();
+                    return (
+                      <div key={email} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition-colors">
+                        <div className="flex flex-col text-right">
+                          <span className="text-xs font-bold text-neutral-800">{email}</span>
+                          <span className="text-[9px] text-neutral-400 font-bold">
+                            {isOwner ? "مالك المشروع" : "عضو مشارك"} {isMe && "(أنت)"}
+                          </span>
+                        </div>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleRemoveMember(email)}
+                            disabled={isUpdatingMembers}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف العضو"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Add Member Form */}
+              {((user?.email || "").toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim()) && (
+                <div className="pt-2 space-y-2">
+                  <span className="text-xs font-black text-neutral-700 block">إضافة شريك/صديق لمساحة العمل</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="بريد صديقك الإلكتروني..."
+                      value={newMemberEmail}
+                      onChange={(e) => setNewMemberEmail(e.target.value)}
+                      disabled={isUpdatingMembers}
+                      className="flex-1 px-3.5 py-2.5 bg-neutral-50/50 border border-neutral-200 focus:border-neutral-900 outline-none rounded-xl text-xs font-bold text-neutral-850 placeholder-neutral-400 text-left"
+                    />
+                    <button
+                      onClick={handleAddMember}
+                      disabled={isUpdatingMembers || !newMemberEmail}
+                      className="bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUpdatingMembers ? "جاري الإضافة..." : "دعوة وإضافة"}
+                    </button>
+                  </div>
+                  {collabMsg && (
+                    <p className={`text-[10px] font-black ${collabMsg.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {collabMsg.text}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
