@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userInfo = {
           id: firebaseUser.uid,
           email: firebaseUser.email || "guest@finance.local",
-          name: firebaseUser.displayName || "زائر تجريبي"
+          name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "مستخدم")
         };
         setUser(userInfo);
         setLoading(false);

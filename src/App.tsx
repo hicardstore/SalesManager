@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthScreens } from "./components/AuthScreens";
 import { Settings } from "./components/Settings";
 import { db } from "./firebase";
-import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, or } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -114,11 +114,8 @@ function MainApp() {
     const workspaceId = activeProject ? activeProject.id : user.id;
     
     const opsRef = collection(db, "operations");
-    // Listen for operations recorded under this workspace projectId OR the user's ID to prevent ANY data loss
-    const q = query(opsRef, or(
-      where("projectId", "==", workspaceId),
-      where("userId", "==", user.id)
-    ));
+    // Listen for operations recorded under this workspace projectId
+    const q = query(opsRef, where("projectId", "==", workspaceId));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedOps: Operation[] = [];
