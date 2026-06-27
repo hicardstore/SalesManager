@@ -139,6 +139,58 @@ function MainApp() {
     return () => unsubscribe();
   }, [user, activeProject, isLoadingProject]);
 
+  // 3. One-time Migration of local data and bad project names
+  useEffect(() => {
+    if (!user || !activeProject) return;
+
+    const runMigration = async () => {
+      // a) Fix project name if it was created under "زائر تجريبي"
+      if (activeProject.name.includes("زائر تجريبي") || activeProject.name.includes("null")) {
+        try {
+          const newName = `مشروع ${user.name || user.email?.split("@")[0] || "الرئيسي"}`;
+          await setDoc(doc(db, "projects", activeProject.id), { name: newName }, { merge: true });
+        } catch (e) {
+          console.error("Failed to rename project:", e);
+        }
+      }
+
+      // b) Migrate any stuck local operations to Cloud Firestore
+      try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (key.startsWith("local_ops_")) {
+            const savedOps = localStorage.getItem(key);
+            if (savedOps) {
+              const parsed = JSON.parse(savedOps);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                console.log("Migrating local operations to cloud for key:", key);
+                for (const op of parsed) {
+                  // Make sure we have an ID
+                  const opId = op.id || `migrated_${Math.random().toString(36).substr(2, 9)}`;
+                  const opRef = doc(db, "operations", opId);
+                  const dbPayload = {
+                    ...op,
+                    id: opId,
+                    userId: user.id,
+                    projectId: activeProject.id, // Migrate all offline data to the current cloud project
+                    createdAt: serverTimestamp(),
+                  };
+                  await setDoc(opRef, dbPayload, { merge: true });
+                }
+              }
+            }
+            // Clear the local key once processed
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (err) {
+        console.error("Local data migration failed:", err);
+      }
+    };
+
+    runMigration();
+  }, [user, activeProject]);
+
   // Devices info helper
   const getDeviceName = () => {
     const ua = navigator.userAgent;
