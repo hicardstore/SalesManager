@@ -52,8 +52,18 @@ export function AuthScreens() {
           }
         }
       } else {
-        await resetPassword(email);
-        setMsg({ type: "success", text: "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني." });
+        const res = await resetPassword(email);
+        if (res.method === "local") {
+          setMsg({ 
+            type: "success", 
+            text: `هذا الحساب محلي/تجريبي ومخزن في المتصفح فقط. تم إعادة تعيين كلمة المرور بنجاح ومباشرةً إلى: ${res.tempPassword}` 
+          });
+        } else {
+          setMsg({ 
+            type: "success", 
+            text: "تم إرسال طلب إعادة تعيين كلمة المرور! إذا كان البريد مسجلاً في Firebase، فستصلك رسالة. يرجى مراجعة مجلد الرسائل غير المرغوب فيها (Spam/Junk) وتأكد من تفعيل موفر البريد في لوحة تحكم Firebase." 
+          });
+        }
       }
     } catch (err: any) {
       const errCode = err?.code || "";
@@ -224,6 +234,28 @@ export function AuthScreens() {
               </button>
             )}
           </form>
+
+          {mode === "reset" && (
+            <div className="mt-5 p-4 rounded-2xl bg-amber-50/50 border border-amber-100 text-[11px] leading-relaxed text-neutral-600 space-y-2 text-right" dir="rtl">
+              <span className="font-black text-amber-800 block text-xs mb-1">
+                💡 لماذا قد لا يصل بريد إعادة تعيين كلمة المرور؟
+              </span>
+              <ul className="list-disc list-inside space-y-1.5 pr-1 font-medium">
+                <li>
+                  <strong>مجلد الرسائل غير المرغوب فيها (Spam/Junk)</strong>: غالباً ما تصنف أنظمة البريد الإلكتروني رسائل Firebase التلقائية كرسائل غير مرغوب فيها. يرجى مراجعة هذا المجلد في بريدك.
+                </li>
+                <li>
+                  <strong>حساب محلي / وضع تجريبي</strong>: إذا كنت تستخدم حساباً تجريبياً أو محلياً، فالحساب مخزن في متصفحك فقط. تم الآن تغيير كلمة المرور إلى <code className="bg-amber-100/60 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">123456</code> تلقائياً ومباشرة لتتمكن من الدخول.
+                </li>
+                <li>
+                  <strong>حماية تعداد البريد (Email Protection)</strong>: تمنع إعدادات حماية Firebase إظهار خطأ إذا كان الإيميل غير مسجل بالنظام (لمنع جمع الإيميلات)، ولكنه لن يرسل بريداً في هذه الحالة. يرجى التأكد من كتابة البريد بشكل صحيح تماماً.
+                </li>
+                <li>
+                  <strong>إعدادات موفر الخدمة في Firebase Console</strong>: يجب التأكد من تفعيل خيار <span className="underline">Email/Password</span> تحت تبويب Sign-in providers في صفحة Authentication داخل لوحة تحكم Firebase Console الخاصة بمشروعك حتى تعمل الخدمة بشكل سليم.
+                </li>
+              </ul>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>

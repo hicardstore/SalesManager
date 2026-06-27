@@ -16,7 +16,7 @@ interface AuthContextType {
   googleSignIn: () => Promise<boolean>;
   guestSignIn: () => Promise<boolean>;
   logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<{ success: boolean; method: string; tempPassword?: string }>;
   updateUserPassword: (newPass: string) => Promise<boolean>;
   deleteUserAccount: () => Promise<boolean>;
 }
@@ -310,15 +310,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const normalizedEmail = email.toLowerCase().trim();
+    const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
+    const localUserIndex = localUsers.findIndex((u: any) => u.email.toLowerCase() === normalizedEmail);
+
     try {
+      // If it's a known local user, directly reset to prevent Firebase failures
+      if (localUserIndex !== -1) {
+        localUsers[localUserIndex].password = "123456";
+        localStorage.setItem("local_users", JSON.stringify(localUsers));
+        return { success: true, method: "local", tempPassword: "123456" };
+      }
+
       await sendPasswordResetEmail(auth, email);
-      return true;
+      return { success: true, method: "firebase" };
     } catch (err: any) {
       const errCode = err?.code || "";
       if (errCode === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
         console.warn("Reset password operation not allowed. Simulating.");
-        return true;
+        if (localUserIndex !== -1) {
+          localUsers[localUserIndex].password = "123456";
+          localStorage.setItem("local_users", JSON.stringify(localUsers));
+          return { success: true, method: "local", tempPassword: "123456" };
+        }
+        return { success: true, method: "simulated" };
       }
+      
+      // Fallback: if Firebase throws user-not-found or something else, check local storage anyway
+      if (localUserIndex !== -1) {
+        localUsers[localUserIndex].password = "123456";
+        localStorage.setItem("local_users", JSON.stringify(localUsers));
+        return { success: true, method: "local", tempPassword: "123456" };
+      }
+
       throw err;
     }
   };
