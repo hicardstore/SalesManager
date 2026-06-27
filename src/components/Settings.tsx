@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2 } from "lucide-react";
+import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2, Laptop, Smartphone } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
@@ -8,10 +8,14 @@ import { ProjectWorkspace } from "../types";
 
 export function Settings({ 
   onLogoutReq,
-  activeProject
+  activeProject,
+  devices = [],
+  onDeleteDevice
 }: { 
   onLogoutReq: () => void;
   activeProject: ProjectWorkspace | null;
+  devices?: any[];
+  onDeleteDevice?: (id: string) => void;
 }) {
   const { user, updateUserPassword, deleteUserAccount } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -352,6 +356,64 @@ export function Settings({
             </div>
           </div>
         )}
+
+        {/* 3. Devices Log Card (سجل الأجهزة المتصلة بالحساب) */}
+        <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+            <div className="p-2 rounded-xl bg-neutral-900 text-white">
+              <Laptop className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <h3 className="font-bold text-neutral-900 text-sm">الأجهزة النشطة المتصلة بالحساب</h3>
+              <p className="text-xs text-neutral-400 font-medium">قائمة بالأجهزة والمتصفحات التي سجلت دخولها لحسابك ومزامنتها نشطة حالياً</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 text-right">
+            <div className="divide-y divide-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden bg-white">
+              {devices.map((device: any) => (
+                <div key={device.id || device.docId} className="p-3.5 flex items-center justify-between hover:bg-neutral-50/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl shrink-0 ${device.current ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-50 text-neutral-400'}`}>
+                      {device.deviceName?.toLowerCase().includes("phone") || device.deviceName?.toLowerCase().includes("android") || device.deviceName?.toLowerCase().includes("ios") ? (
+                        <Smartphone className="w-4 h-4" />
+                      ) : (
+                        <Laptop className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex flex-col text-right">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-neutral-850">{device.deviceName || "جهاز غير معروف"}</span>
+                        {device.current && (
+                          <span className="text-[9px] bg-emerald-50 text-emerald-600 font-extrabold px-1.5 py-0.5 rounded-full">
+                            الجهاز الحالي
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-neutral-400 font-bold mt-1 leading-none">
+                        آخر نشاط: {device.lastActive ? new Date(device.lastActive).toLocaleString('ar-SA', { hour12: true }) : "نشط الآن"}
+                      </span>
+                    </div>
+                  </div>
+                  {!device.current && onDeleteDevice && (
+                    <button
+                      onClick={() => onDeleteDevice(device.docId || device.id)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                      title="إنهاء الجلسة وتسجيل الخروج"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {devices.length === 0 && (
+                <div className="p-6 text-center text-xs text-neutral-400 font-bold">
+                  لا توجد سجلات أجهزة متصلة مسجلة حالياً.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Action Buttons */}

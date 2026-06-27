@@ -34,6 +34,9 @@ function MainApp() {
   const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
 
+  // Devices active session log
+  const [devices, setDevices] = useState<any[]>([]);
+
   // 1. Resolve Active Shared Workspace Project dynamically
   useEffect(() => {
     if (!user) {
@@ -134,7 +137,8 @@ function MainApp() {
     }
 
     if (isLoadingProject) {
-      // Wait for workspace project details to load first so we query with the correct projectId
+      setOperations([]);
+      setLoading(true); // Set to loading and clear operations to prevent showing previous account's stale data
       return;
     }
     
@@ -195,6 +199,135 @@ function MainApp() {
 
     return () => unsubscribe();
   }, [user, activeProject, isLoadingProject]);
+
+  // Devices info helper
+  const getDeviceName = () => {
+    const ua = navigator.userAgent;
+    let browser = "متصفح غير معروف";
+    let os = "نظام تشغيل غير معروف";
+
+    if (ua.includes("Firefox")) browser = "Firefox";
+    else if (ua.includes("Chrome") && !ua.includes("Chromium") && !ua.includes("Edg")) browser = "Chrome";
+    else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+    else if (ua.includes("Edg")) browser = "Edge";
+    else if (ua.includes("OPR") || ua.includes("Opera")) browser = "Opera";
+
+    if (ua.includes("Windows NT")) os = "Windows";
+    else if (ua.includes("Macintosh")) os = "macOS";
+    else if (ua.includes("iPhone")) os = "iPhone";
+    else if (ua.includes("iPad")) os = "iPad";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("Linux")) os = "Linux";
+
+    return `${browser} (${os})`;
+  };
+
+  // 3. Register and Sync Active Device Sessions
+  useEffect(() => {
+    if (!user) {
+      setDevices([]);
+      return;
+    }
+
+    let deviceId = localStorage.getItem("device_id");
+    if (!deviceId) {
+      deviceId = `dev_${Math.floor(100000 + Math.random() * 900000)}`;
+      localStorage.setItem("device_id", deviceId);
+    }
+
+    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id") {
+      const localDevsKey = `local_devices_${user.id}`;
+      let localDevs = JSON.parse(localStorage.getItem(localDevsKey) || "[]");
+      const myDeviceName = getDeviceName();
+      if (!localDevs.some((d: any) => d.id === deviceId)) {
+        localDevs.push({
+          id: deviceId,
+          deviceName: myDeviceName,
+          lastActive: new Date().toISOString(),
+          current: true
+        });
+        localStorage.setItem(localDevsKey, JSON.stringify(localDevs));
+      }
+      setDevices(localDevs);
+      return;
+    }
+
+    const myDeviceName = getDeviceName();
+    const deviceDocId = `${user.id}_${deviceId}`;
+    const deviceRef = doc(db, "devices", deviceDocId);
+
+    const registerDevice = async () => {
+      try {
+        await setDoc(deviceRef, {
+          id: deviceId,
+          userId: user.id,
+          deviceName: myDeviceName,
+          lastActive: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        }, { merge: true });
+      } catch (err) {
+        console.error("Failed to register device session:", err);
+      }
+    };
+
+    registerDevice();
+
+    // Subscribe to all active devices for this user
+    const devicesRef = collection(db, "devices");
+    const q = query(devicesRef, where("userId", "==", user.id));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        list.push({
+          ...data,
+          docId: doc.id,
+          current: data.id === deviceId
+        });
+      });
+      list.sort((a, b) => new Date(b.lastActive || 0).getTime() - new Date(a.lastActive || 0).getTime());
+      setDevices(list);
+    }, (err) => {
+      console.error("Failed to subscribe to devices:", err);
+    });
+
+    // Real-time Session Revocation check: If our device document is deleted by another device, logout
+    let isInitial = true;
+    const unsubCurrentDevice = onSnapshot(deviceRef, (docSnap) => {
+      if (isInitial) {
+        isInitial = false;
+        return;
+      }
+      if (!docSnap.exists()) {
+        console.warn("This device session has been revoked from another device.");
+        logout();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      unsubCurrentDevice();
+    };
+  }, [user]);
+
+  const handleDeleteDevice = async (deviceDocId: string) => {
+    if (!user) return;
+    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id") {
+      const localDevsKey = `local_devices_${user.id}`;
+      let localDevs = JSON.parse(localStorage.getItem(localDevsKey) || "[]");
+      const updated = localDevs.filter((d: any) => d.id !== deviceDocId && d.docId !== deviceDocId);
+      localStorage.setItem(localDevsKey, JSON.stringify(updated));
+      setDevices(updated);
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, "devices", deviceDocId));
+    } catch (err) {
+      console.error("Failed to delete device session:", err);
+    }
+  };
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -330,6 +463,8 @@ function MainApp() {
             <Settings 
               onLogoutReq={() => setShowLogoutConfirm(true)} 
               activeProject={activeProject}
+              devices={devices}
+              onDeleteDevice={handleDeleteDevice}
             />
           )}
         </div>

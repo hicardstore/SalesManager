@@ -52,5 +52,14 @@ service cloud.firestore {
         resource.data.projectId == request.auth.uid
       );
     }
+
+    match /devices/{deviceId} {
+      allow read, update, delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid
+      );
+    }
   }
 }
