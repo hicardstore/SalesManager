@@ -48,37 +48,6 @@ function MainApp() {
     const userEmailNormalized = user.email?.toLowerCase().trim() || "";
     setIsLoadingProject(true);
 
-    const loadLocalProject = () => {
-      const localProjectKey = `local_project_${userEmailNormalized}`;
-      const savedProject = localStorage.getItem(localProjectKey);
-      if (savedProject) {
-        setActiveProject(JSON.parse(savedProject));
-      } else {
-        const dummyProject = {
-          id: `local_proj_${user.id}`,
-          name: `مشروع ${user.name || "الرئيسي"} (محلي)`,
-          ownerEmail: userEmailNormalized,
-          memberEmails: [userEmailNormalized],
-          members: [
-            {
-              email: userEmailNormalized,
-              name: user.name || "العضو",
-              role: "مالك",
-              status: "نشط"
-            }
-          ]
-        };
-        localStorage.setItem(localProjectKey, JSON.stringify(dummyProject));
-        setActiveProject(dummyProject as any);
-      }
-      setIsLoadingProject(false);
-    };
-
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id") {
-      loadLocalProject();
-      return;
-    }
-
     const projectsRef = collection(db, "projects");
     const q = query(projectsRef, where("memberEmails", "array-contains", userEmailNormalized));
 
@@ -115,14 +84,13 @@ function MainApp() {
             ...newProjectDoc
           } as ProjectWorkspace);
         } catch (e) {
-          console.error("Critical: Failed to auto-bootstrap workspace, restoring local project instead:", e);
-          loadLocalProject();
+          console.error("Critical: Failed to auto-bootstrap workspace:", e);
         }
         setIsLoadingProject(false);
       }
     }, (error) => {
-      console.error("Firestore projects lookup error, falling back locally:", error);
-      loadLocalProject();
+      console.error("Firestore projects lookup error:", error);
+      setIsLoadingProject(false);
     });
 
     return () => unsubscribe();
@@ -145,35 +113,6 @@ function MainApp() {
     setLoading(true);
     const workspaceId = activeProject ? activeProject.id : user.id;
     
-    const loadLocalOperations = () => {
-      const localOpsKey = `local_ops_${workspaceId}`;
-      const savedOps = localStorage.getItem(localOpsKey);
-      if (savedOps) {
-        try {
-          const parsed = JSON.parse(savedOps);
-          const filtered = Array.isArray(parsed) 
-            ? parsed.filter((op: any) => op && op.id && !op.id.startsWith("default_"))
-            : [];
-          if (filtered.length !== parsed.length) {
-            localStorage.setItem(localOpsKey, JSON.stringify(filtered));
-          }
-          setOperations(filtered);
-        } catch (e) {
-          localStorage.setItem(localOpsKey, JSON.stringify([]));
-          setOperations([]);
-        }
-      } else {
-        localStorage.setItem(localOpsKey, JSON.stringify([]));
-        setOperations([]);
-      }
-      setLoading(false);
-    };
-
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id" || workspaceId.startsWith("local_proj_")) {
-      loadLocalOperations();
-      return;
-    }
-
     const opsRef = collection(db, "operations");
     // Listen for operations recorded under this workspace projectId
     const q = query(opsRef, where("projectId", "==", workspaceId));
@@ -193,8 +132,8 @@ function MainApp() {
       setOperations(fetchedOps);
       setLoading(false);
     }, (error) => {
-      console.error("Firestore operations sync error, falling back locally:", error);
-      loadLocalOperations();
+      console.error("Firestore operations sync error:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -233,23 +172,6 @@ function MainApp() {
     if (!deviceId) {
       deviceId = `dev_${Math.floor(100000 + Math.random() * 900000)}`;
       localStorage.setItem("device_id", deviceId);
-    }
-
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id") {
-      const localDevsKey = `local_devices_${user.id}`;
-      let localDevs = JSON.parse(localStorage.getItem(localDevsKey) || "[]");
-      const myDeviceName = getDeviceName();
-      if (!localDevs.some((d: any) => d.id === deviceId)) {
-        localDevs.push({
-          id: deviceId,
-          deviceName: myDeviceName,
-          lastActive: new Date().toISOString(),
-          current: true
-        });
-        localStorage.setItem(localDevsKey, JSON.stringify(localDevs));
-      }
-      setDevices(localDevs);
-      return;
     }
 
     const myDeviceName = getDeviceName();
@@ -313,14 +235,6 @@ function MainApp() {
 
   const handleDeleteDevice = async (deviceDocId: string) => {
     if (!user) return;
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id") {
-      const localDevsKey = `local_devices_${user.id}`;
-      let localDevs = JSON.parse(localStorage.getItem(localDevsKey) || "[]");
-      const updated = localDevs.filter((d: any) => d.id !== deviceDocId && d.docId !== deviceDocId);
-      localStorage.setItem(localDevsKey, JSON.stringify(updated));
-      setDevices(updated);
-      return;
-    }
 
     try {
       await deleteDoc(doc(db, "devices", deviceDocId));
@@ -338,33 +252,6 @@ function MainApp() {
   const handleAddOperation = async (payload: any): Promise<boolean> => {
     if (!user) return false;
     const workspaceId = activeProject ? activeProject.id : user.id;
-
-    // Local persistence saver helper
-    const saveLocally = () => {
-      try {
-        const localOpsKey = `local_ops_${workspaceId}`;
-        const savedOps = localStorage.getItem(localOpsKey);
-        const opsList: Operation[] = savedOps ? JSON.parse(savedOps) : [];
-        const newOp: Operation = {
-          ...payload,
-          id: `op_${Math.floor(100000 + Math.random() * 900000)}`,
-          userId: user.id,
-          projectId: workspaceId,
-          date: new Date().toISOString()
-        };
-        opsList.unshift(newOp);
-        localStorage.setItem(localOpsKey, JSON.stringify(opsList));
-        setOperations(opsList);
-        return true;
-      } catch (locErr) {
-        console.error("Failed to write to local storage:", locErr);
-        return false;
-      }
-    };
-
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id" || workspaceId.startsWith("local_proj_")) {
-      return saveLocally();
-    }
 
     try {
       const dbPayload = {
@@ -388,25 +275,6 @@ function MainApp() {
   const handleDeleteOperation = async (opId: string): Promise<boolean> => {
     if (!user) return false;
     const workspaceId = activeProject ? activeProject.id : user.id;
-
-    const deleteLocally = () => {
-      try {
-        const localOpsKey = `local_ops_${workspaceId}`;
-        const savedOps = localStorage.getItem(localOpsKey);
-        const opsList: Operation[] = savedOps ? JSON.parse(savedOps) : [];
-        const filteredOps = opsList.filter(op => op.id !== opId);
-        localStorage.setItem(localOpsKey, JSON.stringify(filteredOps));
-        setOperations(filteredOps);
-        return true;
-      } catch (locErr) {
-        console.error("Failed to delete local storage operation:", locErr);
-        return false;
-      }
-    };
-
-    if (user.id.startsWith("local_") || user.id === "offline_guest_user_id" || workspaceId.startsWith("local_proj_")) {
-      return deleteLocally();
-    }
 
     try {
       const opDocRef = doc(db, "operations", opId);

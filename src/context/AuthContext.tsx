@@ -30,18 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Check if we have a locally stored active user (offline sandbox mode session)
-    const localUserJson = localStorage.getItem("current_local_user");
-    if (localUserJson) {
-      try {
-        setUser(JSON.parse(localUserJson));
-        setLoading(false);
-        return;
-      } catch (err) {
-        console.error("Failed to parse local sandbox user:", err);
-      }
-    }
-
     const unsubscribe = initAuth(
       (firebaseUser) => {
         const userInfo = {
@@ -53,10 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       },
       () => {
-        // Only set null if we didn't deliberately start in offline local mode
-        if (!localStorage.getItem("current_local_user")) {
-          setUser(null);
-        }
+        setUser(null);
         setLoading(false);
       }
     );
@@ -71,14 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: credential.user.email || email,
         name: credential.user.displayName || email.split("@")[0]
       };
-      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {
       const errCode = err?.code || "";
 
       // If the user is not found in real Firebase Auth, let's auto-register them
-      if (errCode === "auth/user-not-found" || err.message?.includes("user-not-found")) {
+      if (errCode === "auth/user-not-found" || errCode === "auth/invalid-credential" || err.message?.includes("user-not-found")) {
         try {
           const credential = await createUserWithEmailAndPassword(auth, email, pass);
           const userInfo = {
@@ -86,51 +70,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: credential.user.email || email,
             name: email.split("@")[0]
           };
-          localStorage.removeItem("current_local_user");
           setUser(userInfo);
           return true;
         } catch (regErr: any) {
           console.warn("Auto Firebase registration did not succeed:", regErr?.message || regErr);
-          // If auto registration fails, throw original 'user-not-found'
-          throw err;
+          throw new Error("فشل تسجيل الدخول أو إنشاء حساب جديد. يرجى التأكد من تفعيل Email/Password في Firebase.");
         }
       }
       
-      if (errCode === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
-        console.warn("Firebase Email auth disabled. Checking local credentials.");
-        const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-        const normalizedEmail = email.toLowerCase().trim();
-        const userIndex = localUsers.findIndex((u: any) => u.email.toLowerCase() === normalizedEmail);
-        
-        let targetUser;
-        if (userIndex !== -1) {
-          targetUser = localUsers[userIndex];
-          if (targetUser.password !== pass) {
-            const error = new Error("Firebase: Error (auth/wrong-password).");
-            (error as any).code = "auth/wrong-password";
-            throw error;
-          }
-        } else {
-          // Auto-bootstrap/register new local user in sandbox
-          targetUser = {
-            email: normalizedEmail,
-            password: pass,
-            name: email.split("@")[0]
-          };
-          localUsers.push(targetUser);
-          localStorage.setItem("local_users", JSON.stringify(localUsers));
-        }
-        
-        const localUser = {
-          id: `local_${email.replace(/[^a-zA-Z0-9]/g, "_")}`,
-          email: email.trim(),
-          name: targetUser.name || email.split("@")[0]
-        };
-        setUser(localUser);
-        localStorage.setItem("current_local_user", JSON.stringify(localUser));
-        return true;
-      }
-      throw err;
+      throw new Error("حدث خطأ أثناء تسجيل الدخول: " + err.message);
     }
   };
 
@@ -142,34 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: credential.user.email || email,
         name: email.split("@")[0]
       };
-      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {
-      const errCode = err?.code || "";
-      if (errCode === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
-        console.warn("Firebase Email registration disabled. Registering into client-side sandbox.");
-        const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-        if (localUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase().trim())) {
-          const error = new Error("Firebase: Error (auth/email-already-in-use).");
-          (error as any).code = "auth/email-already-in-use";
-          throw error;
-        }
-        
-        localUsers.push({ email: email.toLowerCase().trim(), password: pass, name: email.split("@")[0] });
-        localStorage.setItem("local_users", JSON.stringify(localUsers));
-        
-        // Auto sign in the newly registered local user
-        const localUser = {
-          id: `local_${email.replace(/[^a-zA-Z0-9]/g, "_")}`,
-          email: email.trim(),
-          name: email.split("@")[0]
-        };
-        setUser(localUser);
-        localStorage.setItem("current_local_user", JSON.stringify(localUser));
-        return true;
-      }
-      throw err;
+      throw new Error("حدث خطأ أثناء التسجيل: " + err.message);
     }
   };
 
@@ -287,15 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      // 4. Ultimate offline/local-state fallback so the user is never stuck
-      const localUser = {
-        id: "offline_guest_user_id",
-        email: "guest@finance.local",
-        name: "زائر تجريبي (محلي)"
-      };
-      setUser(localUser);
-      localStorage.setItem("current_local_user", JSON.stringify(localUser));
-      return true;
+      throw new Error("فشل تسجيل الدخول كزائر. تأكد من تفعيل Email/Password في Firebase: " + err.message);
     }
   };
 
@@ -310,99 +226,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const normalizedEmail = email.toLowerCase().trim();
-    const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-    const localUserIndex = localUsers.findIndex((u: any) => u.email.toLowerCase() === normalizedEmail);
-
     try {
-      // If it's a known local user, directly reset to prevent Firebase failures
-      if (localUserIndex !== -1) {
-        localUsers[localUserIndex].password = "123456";
-        localStorage.setItem("local_users", JSON.stringify(localUsers));
-        return { success: true, method: "local", tempPassword: "123456" };
-      }
-
       await sendPasswordResetEmail(auth, email);
       return { success: true, method: "firebase" };
     } catch (err: any) {
-      const errCode = err?.code || "";
-      if (errCode === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
-        console.warn("Reset password operation not allowed. Simulating.");
-        if (localUserIndex !== -1) {
-          localUsers[localUserIndex].password = "123456";
-          localStorage.setItem("local_users", JSON.stringify(localUsers));
-          return { success: true, method: "local", tempPassword: "123456" };
-        }
-        return { success: true, method: "simulated" };
-      }
-      
-      // Fallback: if Firebase throws user-not-found or something else, check local storage anyway
-      if (localUserIndex !== -1) {
-        localUsers[localUserIndex].password = "123456";
-        localStorage.setItem("local_users", JSON.stringify(localUsers));
-        return { success: true, method: "local", tempPassword: "123456" };
-      }
-
-      throw err;
+      throw new Error("حدث خطأ أثناء استعادة كلمة المرور: " + err.message);
     }
   };
 
   const updateUserPassword = async (newPass: string) => {
-    if (!auth.currentUser || user?.id.startsWith("local_") || user?.id === "offline_guest_user_id") {
-      const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-      const userEmailNormalized = user?.email?.toLowerCase().trim() || "";
-      const userIndex = localUsers.findIndex((u: any) => u.email.toLowerCase() === userEmailNormalized);
-      if (userIndex !== -1) {
-        localUsers[userIndex].password = newPass;
-        localStorage.setItem("local_users", JSON.stringify(localUsers));
-      }
-      if (user?.id === "offline_guest_user_id") {
-        localStorage.setItem("guest_password", newPass);
-      }
-      return true;
+    if (!auth.currentUser) {
+      throw new Error("يجب تسجيل الدخول أولاً.");
     }
 
     try {
       await updatePassword(auth.currentUser, newPass);
       return true;
     } catch (err: any) {
-      console.error("Firebase updatePassword error:", err);
-      const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-      const userEmailNormalized = user?.email?.toLowerCase().trim() || "";
-      const userIndex = localUsers.findIndex((u: any) => u.email.toLowerCase() === userEmailNormalized);
-      if (userIndex !== -1) {
-        localUsers[userIndex].password = newPass;
-        localStorage.setItem("local_users", JSON.stringify(localUsers));
-      }
-      return true;
+      throw new Error("فشل تغيير كلمة المرور: " + err.message);
     }
   };
 
   const deleteUserAccount = async (): Promise<boolean> => {
-    const isLocal = !auth.currentUser || user?.id.startsWith("local_") || user?.id === "offline_guest_user_id";
-    const userEmailNormalized = user?.email?.toLowerCase().trim() || "";
-
-    if (isLocal) {
-      try {
-        localStorage.removeItem("current_local_user");
-        if (userEmailNormalized) {
-          localStorage.removeItem(`local_project_${userEmailNormalized}`);
-          localStorage.removeItem(`local_ops_local_proj_${user?.id}`);
-          localStorage.removeItem(`local_ops_${user?.id}`);
-          const localUsers = JSON.parse(localStorage.getItem("local_users") || "[]");
-          const updatedLocalUsers = localUsers.filter((u: any) => u.email.toLowerCase() !== userEmailNormalized);
-          localStorage.setItem("local_users", JSON.stringify(updatedLocalUsers));
-        }
-        localStorage.removeItem("guest_password");
-        setUser(null);
-        return true;
-      } catch (err) {
-        console.error("Local account delete failed:", err);
-        setUser(null);
-        return true;
-      }
-    }
-
     try {
       const u = auth.currentUser;
       if (u) {

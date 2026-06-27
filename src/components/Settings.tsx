@@ -173,7 +173,7 @@ export function Settings({
       title: "الربط والخدمات السحابية",
       icon: <Cloud className="w-4 h-4 text-emerald-500" />,
       items: [
-        { label: "المزامنة السحابية (Firebase)", value: isLocalMode ? "حفظ محلي فقط ⚠️" : "متصل نشط ✅", action: false },
+        { label: "المزامنة السحابية (Firebase)", value: "متصل نشط ✅", action: false },
       ]
     },
     {
@@ -231,7 +231,7 @@ export function Settings({
         {/* 1. Cloud Sync Diagnostic Card */}
         <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
-            <div className={`p-2 rounded-xl ${isLocalMode ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
               <Cloud className="w-5 h-5" />
             </div>
             <div>
@@ -240,42 +240,21 @@ export function Settings({
             </div>
           </div>
 
-          {isLocalMode ? (
-            <div className="space-y-3" dir="rtl">
-              <div className="p-3 bg-amber-50/70 border border-amber-200/50 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-amber-800">وضعية العمل المحلي النشط (غير متصل بالسحابية)</p>
-                  <p className="text-[11px] text-amber-700 font-bold leading-relaxed">
-                    التطبيق يعمل حالياً على حفظ البيانات في ذاكرة هذا الجهاز فقط (Local Storage). لن تظهر العمليات التي تسجلها على هواتف أخرى، ولن تظهر لك أي عمليات يسجلها أصدقاؤك.
-                  </p>
-                </div>
-              </div>
-              <div className="p-3.5 bg-neutral-50 rounded-xl space-y-1.5 border border-neutral-150/50 text-right">
-                <p className="text-xs font-black text-neutral-800">💡 كيف تحل هذه المشكلة وتفعل المزامنة؟</p>
-                <ul className="text-[11px] text-neutral-500 space-y-1 pr-4 leading-relaxed font-bold list-disc">
-                  <li>تأكد من تفعيل موفر البريد الإلكتروني <span className="font-black text-neutral-700">Email/Password</span> في قسم Authentication بـ Firebase Console الخاص بك.</li>
-                  <li>بعد تفعيله، قم بتسجيل الخروج من الحساب الحالي ثم قم بإنشاء حساب جديد بالبريد الإلكتروني للربط السحابي الحقيقي والمستقر.</li>
-                </ul>
+          <div className="space-y-3" dir="rtl">
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200/50 rounded-xl flex items-start gap-3">
+              <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-right">
+                <p className="text-xs font-black text-emerald-850">مزامنة سحابية نشطة ومباشرة (Firebase)</p>
+                <p className="text-[11px] text-emerald-700 font-bold leading-relaxed">
+                  حسابك متصل بقاعدة البيانات السحابية الحية بنجاح! جميع العمليات التي تسجلها تظهر في الوقت الفعلي على جميع الأجهزة المفتوحة بنفس الحساب دون أي تأخير.
+                </p>
               </div>
             </div>
-          ) : (
-            <div className="space-y-3" dir="rtl">
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200/50 rounded-xl flex items-start gap-3">
-                <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-right">
-                  <p className="text-xs font-black text-emerald-850">مزامنة سحابية نشطة ومباشرة (Firebase)</p>
-                  <p className="text-[11px] text-emerald-700 font-bold leading-relaxed">
-                    حسابك متصل بقاعدة البيانات السحابية الحية بنجاح! جميع العمليات التي تسجلها تظهر في الوقت الفعلي على جميع الأجهزة المفتوحة بنفس الحساب دون أي تأخير.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* 2. Team Collaboration & Share Card */}
-        {!isLocalMode && activeProject && (
+        {activeProject && (
           <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
             <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
               <div className="p-2 rounded-xl bg-neutral-900 text-white">
