@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userInfo = {
         id: credential.user.uid,
         email: credential.user.email || "guest@finance.local",
-        name: "زائر تجريبي"
+        name: "مستخدم ضيف"
       };
       setUser(userInfo);
       return true;
@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const localUser = {
           id: "offline_guest_user_id",
           email: "guest@finance.local",
-          name: "زائر تجريبي (محلي)"
+          name: "مستخدم ضيف (محلي)"
         };
         setUser(localUser);
         localStorage.setItem("current_local_user", JSON.stringify(localUser));
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userInfo = {
             id: credential.user.uid,
             email: credential.user.email || "guest@finance.local",
-            name: "زائر تجريبي"
+            name: "مستخدم ضيف"
           };
           setUser(userInfo);
           return true;
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const localUser = {
               id: "offline_guest_user_id",
               email: "guest@finance.local",
-              name: "زائر تجريبي (محلي)"
+              name: "مستخدم ضيف (محلي)"
             };
             setUser(localUser);
             localStorage.setItem("current_local_user", JSON.stringify(localUser));
@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userInfo = {
               id: credential.user.uid,
               email: credential.user.email || "guest@finance.local",
-              name: "زائر تجريبي"
+              name: "مستخدم ضيف"
             };
             setUser(userInfo);
             return true;

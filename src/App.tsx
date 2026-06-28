@@ -63,15 +63,19 @@ function MainApp() {
       } else {
         // No shared workspace contains this user - bootstrap a new one with user details
         try {
+          let baseName = user.name || "الرئيسي";
+          if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
+             baseName = user.email?.split("@")[0] || "الرئيسي";
+          }
           const genProjectId = user.id;
           const newProjectDoc = {
-            name: `مشروع ${user.name || "الرئيسي"}`,
+            name: `مشروع ${baseName}`,
             ownerEmail: userEmailNormalized,
             memberEmails: [userEmailNormalized],
             members: [
               {
                 email: userEmailNormalized,
-                name: user.name || "العضو",
+                name: baseName || "العضو",
                 role: "مالك",
                 status: "نشط"
               }
@@ -144,11 +148,18 @@ function MainApp() {
     if (!user || !activeProject) return;
 
     const runMigration = async () => {
-      // a) Fix project name if it was created under "زائر تجريبي"
-      if (activeProject.name.includes("زائر تجريبي") || activeProject.name.includes("null")) {
+      // a) Fix project name if it was created under "مستخدم ضيف" or "زائر تجريبي"
+      if (activeProject.name.includes("مستخدم ضيف") || activeProject.name.includes("زائر تجريبي") || activeProject.name.includes("null")) {
         try {
-          const newName = `مشروع ${user.name || user.email?.split("@")[0] || "الرئيسي"}`;
-          await setDoc(doc(db, "projects", activeProject.id), { name: newName }, { merge: true });
+          let baseName = user.name || "الرئيسي";
+          if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
+            baseName = user.email?.split("@")[0] || "الرئيسي";
+          }
+          const newName = `مشروع ${baseName}`;
+          // Make sure it doesn't accidentally set it to "مشروع مستخدم ضيف" again
+          if (!newName.includes("مستخدم ضيف") && !newName.includes("زائر تجريبي")) {
+            await setDoc(doc(db, "projects", activeProject.id), { name: newName }, { merge: true });
+          }
         } catch (e) {
           console.error("Failed to rename project:", e);
         }

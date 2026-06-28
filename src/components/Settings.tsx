@@ -44,6 +44,33 @@ export function Settings({
   const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
   const [collabMsg, setCollabMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Rename workspace
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [isUpdatingProjectName, setIsUpdatingProjectName] = useState(false);
+
+  const handleRenameProject = async () => {
+    if (!activeProject || !newProjectName.trim() || newProjectName.trim() === activeProject.name) {
+      setIsEditingProjectName(false);
+      return;
+    }
+    
+    setIsUpdatingProjectName(true);
+    try {
+      const projectRef = doc(db, "projects", activeProject.id);
+      await updateDoc(projectRef, {
+        name: newProjectName.trim()
+      });
+      setCollabMsg({ type: "success", text: "تم تغيير اسم مساحة العمل بنجاح." });
+      setIsEditingProjectName(false);
+    } catch (err) {
+      console.error("Failed to rename project:", err);
+      setCollabMsg({ type: "error", text: "فشل تغيير اسم مساحة العمل." });
+    } finally {
+      setIsUpdatingProjectName(false);
+    }
+  };
+
   const isLocalMode = !user || user.id.startsWith("local_") || user.id === "offline_guest_user_id" || (activeProject && activeProject.id.startsWith("local_proj_"));
 
   const handleAddMember = async () => {
@@ -268,8 +295,47 @@ export function Settings({
 
             <div className="space-y-3 text-right">
               <div className="flex flex-col gap-1 p-3 bg-neutral-50 rounded-xl border border-neutral-100">
-                <span className="text-[10px] font-black text-neutral-400">اسم مساحة العمل الحالية</span>
-                <span className="text-xs font-black text-neutral-800">{activeProject.name}</span>
+                <div className="flex items-center justify-between">
+                  {user?.email === activeProject.ownerEmail && !isEditingProjectName ? (
+                    <button 
+                      onClick={() => {
+                        setNewProjectName(activeProject.name);
+                        setIsEditingProjectName(true);
+                      }} 
+                      className="text-[10px] text-blue-600 font-bold hover:underline"
+                    >
+                      تعديل الاسم
+                    </button>
+                  ) : <div></div>}
+                  <span className="text-[10px] font-black text-neutral-400">اسم مساحة العمل الحالية</span>
+                </div>
+                {isEditingProjectName ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <button 
+                      onClick={handleRenameProject} 
+                      disabled={isUpdatingProjectName}
+                      className="bg-neutral-900 text-white text-[10px] px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
+                    >
+                      {isUpdatingProjectName ? "جاري الحفظ..." : "حفظ"}
+                    </button>
+                    <button 
+                      onClick={() => setIsEditingProjectName(false)} 
+                      className="bg-neutral-200 text-neutral-700 text-[10px] px-3 py-1.5 rounded-lg font-bold"
+                    >
+                      إلغاء
+                    </button>
+                    <input 
+                      type="text" 
+                      value={newProjectName} 
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded-lg px-2 py-1.5 w-full text-right outline-none focus:border-blue-500"
+                      dir="rtl"
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-black text-neutral-800">{activeProject.name}</span>
+                )}
                 <span className="text-[10px] text-neutral-400 font-bold mt-0.5">المالك: {activeProject.ownerEmail}</span>
               </div>
 
