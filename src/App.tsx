@@ -100,6 +100,8 @@ function MainApp() {
     return () => unsubscribe();
   }, [user]);
 
+  const workspaceId = activeProject ? activeProject.id : user?.id;
+
   // 2. Sync Shared Operations database from Firestore
   useEffect(() => {
     if (!user) {
@@ -115,7 +117,7 @@ function MainApp() {
     }
     
     setLoading(true);
-    const workspaceId = activeProject ? activeProject.id : user.id;
+    if (!workspaceId) return;
     
     const opsRef = collection(db, "operations");
     // Listen for operations recorded under this workspace projectId
@@ -141,7 +143,7 @@ function MainApp() {
     });
 
     return () => unsubscribe();
-  }, [user, activeProject, isLoadingProject]);
+  }, [user?.id, workspaceId, isLoadingProject]);
 
   // 3. One-time Migration of local data and bad project names
   useEffect(() => {
