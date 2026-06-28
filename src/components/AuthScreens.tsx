@@ -111,7 +111,11 @@ export function AuthScreens() {
       await googleSignIn();
     } catch (err: any) {
       console.error(err);
-      setMsg({ type: "error", text: "تعذر تسجيل الدخول عبر جوجل." });
+      if (err?.code === "auth/unauthorized-domain") {
+        setMsg({ type: "error", text: "يجب إضافة رابط هذا التطبيق إلى قائمة النطاقات المصرح بها (Authorized domains) في إعدادات Firebase Authentication." });
+      } else {
+        setMsg({ type: "error", text: "تعذر تسجيل الدخول عبر جوجل: " + (err.message || String(err)) });
+      }
     }
     setLoading(false);
   };
