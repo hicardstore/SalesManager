@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthScreens } from "./components/AuthScreens";
 import { Settings } from "./components/Settings";
 import { db } from "./firebase";
-import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -100,8 +100,6 @@ function MainApp() {
     return () => unsubscribe();
   }, [user]);
 
-  const workspaceId = activeProject ? activeProject.id : user?.id;
-
   // 2. Sync Shared Operations database from Firestore
   useEffect(() => {
     if (!user) {
@@ -109,19 +107,12 @@ function MainApp() {
       setLoading(false);
       return;
     }
-
-    if (isLoadingProject) {
-      setOperations([]);
-      setLoading(true); // Set to loading and clear operations to prevent showing previous account's stale data
-      return;
-    }
     
     setLoading(true);
-    if (!workspaceId) return;
     
-    const opsRef = collection(db, "operations");
-    // Listen for operations recorded under this workspace projectId
-    const q = query(opsRef, where("projectId", "==", workspaceId));
+    const opsRef = collection(db, "users", user.id, "operations");
+    // Listen for operations recorded under this user's UID directly
+    const q = query(opsRef);
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedOps: Operation[] = [];
@@ -143,7 +134,7 @@ function MainApp() {
     });
 
     return () => unsubscribe();
-  }, [user?.id, workspaceId, isLoadingProject]);
+  }, [user?.id]);
 
   // 3. One-time Migration of local data and bad project names
   useEffect(() => {
@@ -167,6 +158,23 @@ function MainApp() {
         }
       }
 
+      try {
+        const legacyOpsRef = collection(db, "operations");
+        const qLegacy = query(legacyOpsRef, where("userId", "==", user.id));
+        const legacySnap = await getDocs(qLegacy);
+        if (!legacySnap.empty) {
+          console.log(`Found ${legacySnap.size} legacy operations in root collection, migrating to user subcollection...`);
+          for (const docSnap of legacySnap.docs) {
+            const opData = docSnap.data();
+            const newRef = doc(db, "users", user.id, "operations", docSnap.id);
+            await setDoc(newRef, { ...opData, id: docSnap.id }, { merge: true });
+            await deleteDoc(docSnap.ref); // Delete the old root document
+          }
+        }
+      } catch (err) {
+        console.error("Legacy root operations migration failed:", err);
+      }
+
       // b) Migrate any stuck local operations to Cloud Firestore
       try {
         const keys = Object.keys(localStorage);
@@ -180,12 +188,11 @@ function MainApp() {
                 for (const op of parsed) {
                   // Make sure we have an ID
                   const opId = op.id || `migrated_${Math.random().toString(36).substr(2, 9)}`;
-                  const opRef = doc(db, "operations", opId);
+                  const opRef = doc(db, "users", user.id, "operations", opId);
                   const dbPayload = {
                     ...op,
                     id: opId,
                     userId: user.id,
-                    projectId: activeProject.id, // Migrate all offline data to the current cloud project
                     createdAt: serverTimestamp(),
                   };
                   await setDoc(opRef, dbPayload, { merge: true });
@@ -318,19 +325,17 @@ function MainApp() {
   // Local/Cloud handler to manage operations instantly
   const handleAddOperation = async (payload: any): Promise<boolean> => {
     if (!user) return false;
-    const workspaceId = activeProject ? activeProject.id : user.id;
 
     try {
       const dbPayload = {
         ...payload,
         userId: user.id,
-        projectId: workspaceId,
         createdAt: serverTimestamp(),
         // Keep a string date for exact local time if needed by the app
         date: new Date().toISOString()
       };
       
-      const opsRef = collection(db, "operations");
+      const opsRef = collection(db, "users", user.id, "operations");
       await addDoc(opsRef, dbPayload);
       return true;
     } catch (e) {
@@ -341,10 +346,9 @@ function MainApp() {
 
   const handleDeleteOperation = async (opId: string): Promise<boolean> => {
     if (!user) return false;
-    const workspaceId = activeProject ? activeProject.id : user.id;
 
     try {
-      const opDocRef = doc(db, "operations", opId);
+      const opDocRef = doc(db, "users", user.id, "operations", opId);
       await deleteDoc(opDocRef);
       // Immediately filter our local state to guarantee instantaneous update without any listener lags
       setOperations((prev) => prev.filter(op => op.id !== opId));
