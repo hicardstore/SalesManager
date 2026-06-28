@@ -243,6 +243,8 @@ function MainApp() {
     const deviceDocId = `${user.id}_${deviceId}`;
     const deviceRef = doc(db, "devices", deviceDocId);
 
+    let unsubCurrentDevice: () => void = () => {};
+
     const registerDevice = async () => {
       try {
         await setDoc(deviceRef, {
@@ -252,6 +254,19 @@ function MainApp() {
           lastActive: new Date().toISOString(),
           userAgent: navigator.userAgent
         }, { merge: true });
+
+        // Only start checking for session revocation AFTER we are sure the device document is created
+        let isInitial = true;
+        unsubCurrentDevice = onSnapshot(deviceRef, (docSnap) => {
+          if (isInitial) {
+            isInitial = false;
+            return;
+          }
+          if (!docSnap.exists()) {
+            console.warn("This device session has been revoked from another device.");
+            logout();
+          }
+        });
       } catch (err) {
         console.error("Failed to register device session:", err);
       }
@@ -279,22 +294,9 @@ function MainApp() {
       console.error("Failed to subscribe to devices:", err);
     });
 
-    // Real-time Session Revocation check: If our device document is deleted by another device, logout
-    let isInitial = true;
-    const unsubCurrentDevice = onSnapshot(deviceRef, (docSnap) => {
-      if (isInitial) {
-        isInitial = false;
-        return;
-      }
-      if (!docSnap.exists()) {
-        console.warn("This device session has been revoked from another device.");
-        logout();
-      }
-    });
-
     return () => {
       unsubscribe();
-      unsubCurrentDevice();
+      if (unsubCurrentDevice) unsubCurrentDevice();
     };
   }, [user]);
 
