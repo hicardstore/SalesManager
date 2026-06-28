@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -24,7 +24,7 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: User }> => {
   try {
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
     return { user: result.user };
   } catch (error: any) {
     console.error('Sign in error:', error);
