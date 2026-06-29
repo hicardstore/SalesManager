@@ -99,7 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const googleSignIn = async () => {
     try {
-      const { user: firebaseUser } = await firebaseGoogleSignIn();
+      const result = await firebaseGoogleSignIn();
+      if (!result) {
+        // Fallback to redirect happened, the page will reload soon
+        return true;
+      }
+      const { user: firebaseUser } = result;
       const userInfo = {
         id: firebaseUser.uid,
         email: firebaseUser.email,

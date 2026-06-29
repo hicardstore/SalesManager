@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, browserPopupRedirectResolver } from 'firebase/auth';
+import { getAuth, signInWithPopup, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -22,12 +22,17 @@ export const initAuth = (
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User }> => {
+export const googleSignIn = async (): Promise<{ user: User } | void> => {
   try {
     const result = await signInWithPopup(auth, provider);
     return { user: result.user };
   } catch (error: any) {
     console.error('Sign in error:', error);
+    if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
+      // Fallback to redirect for mobile devices or browsers that block popups
+      await signInWithRedirect(auth, provider);
+      return; // Will redirect the page
+    }
     throw error;
   }
 };
