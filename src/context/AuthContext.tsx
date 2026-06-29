@@ -74,25 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userInfo);
       return true;
     } catch (err: any) {
-      const errCode = err?.code || "";
-
-      // If the user is not found in real Firebase Auth, let's auto-register them
-      if (errCode === "auth/user-not-found" || errCode === "auth/invalid-credential" || err.message?.includes("user-not-found")) {
-        try {
-          const credential = await createUserWithEmailAndPassword(auth, email, pass);
-          const userInfo = {
-            id: credential.user.uid,
-            email: credential.user.email || email,
-            name: email.split("@")[0]
-          };
-          setUser(userInfo);
-          return true;
-        } catch (regErr: any) {
-          console.warn("Auto Firebase registration did not succeed:", regErr?.message || regErr);
-          throw new Error("فشل تسجيل الدخول أو إنشاء حساب جديد. يرجى التأكد من تفعيل Email/Password في Firebase.");
-        }
-      }
-      
       throw new Error("حدث خطأ أثناء تسجيل الدخول: " + err.message);
     }
   };
@@ -125,22 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: firebaseUser.email,
         name: firebaseUser.displayName
       };
-      localStorage.removeItem("current_local_user");
       setUser(userInfo);
       return true;
     } catch (err: any) {
-      const errCode = err?.code || "";
-      if (errCode === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
-        // Fallback to random guest details
-        const fallbackUser = {
-          id: "offline_google_sandbox_user",
-          email: "google.sandbox@finance.local",
-          name: "مستكشف جوجل التجريبي"
-        };
-        setUser(fallbackUser);
-        localStorage.setItem("current_local_user", JSON.stringify(fallbackUser));
-        return true;
-      }
       throw err;
     }
   };

@@ -15,6 +15,7 @@ export interface ProjectMember {
 export interface ProjectWorkspace {
   id: string;
   name: string;
+  ownerId?: string;
   ownerEmail: string;
   members: ProjectMember[];
   memberEmails?: string[];

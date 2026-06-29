@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Menu, Settings, FilePlus, BarChart3, X, LogOut, Users } from "lucide-react";
+import { Menu, Settings, FilePlus, BarChart3, X, LogOut, Users, Bug } from "lucide-react";
 
-export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "create" | "dashboard" | "settings"; onNavigate: (tab: "create" | "dashboard" | "settings") => void; onLogout: () => void }) {
+export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "create" | "dashboard" | "settings" | "debug"; onNavigate: (tab: "create" | "dashboard" | "settings" | "debug") => void; onLogout: () => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -32,6 +32,12 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
               className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'settings' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
             >
               <Settings className="w-4 h-4" /> الإعدادات
+            </button>
+            <button 
+              onClick={() => { onNavigate("debug"); setIsMenuOpen(false); }}
+              className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'debug' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
+            >
+              <Bug className="w-4 h-4" /> فحص النظام
             </button>
             <button 
               onClick={() => { onLogout(); setIsMenuOpen(false); }}

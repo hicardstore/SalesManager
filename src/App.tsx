@@ -2,18 +2,19 @@ import React, { useState, useEffect } from "react";
 import { Operation, ProjectWorkspace } from "./types";
 import OperationForm from "./components/OperationForm";
 import FinanceDashboard from "./components/FinanceDashboard";
-import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "./components/Header";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthScreens } from "./components/AuthScreens";
 import { Settings } from "./components/Settings";
-import { db } from "./firebase";
+import { DebugPage } from "./components/DebugPage";
+import { db, auth } from "./firebase";
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "settings" | "debug">("dashboard");
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -33,6 +34,7 @@ function MainApp() {
   // Collaborative workspace settings persistence
   const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   // Devices active session log
   const [devices, setDevices] = useState<any[]>([]);
@@ -45,65 +47,114 @@ function MainApp() {
       return;
     }
 
-    const userEmailNormalized = user.email?.toLowerCase().trim() || "";
     setIsLoadingProject(true);
+    let unsubscribe: () => void = () => {};
 
-    const projectsRef = collection(db, "projects");
-    const q = query(projectsRef, where("memberEmails", "array-contains", userEmailNormalized));
-
-    let isBootstrapping = false;
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      // If it's empty AND from cache, wait for the server response
-      if (snapshot.empty && snapshot.metadata.fromCache) {
-        return;
-      }
-
-      if (!snapshot.empty) {
-        const docSnap = snapshot.docs[0];
-        const data = docSnap.data();
-        setActiveProject({
-          id: docSnap.id,
-          ...data
-        } as ProjectWorkspace);
-        setIsLoadingProject(false);
-      } else if (!isBootstrapping) {
-        isBootstrapping = true;
-        // No shared workspace contains this user on the server - bootstrap a new one with user details
-        try {
-          let baseName = user.name || "الرئيسي";
-          if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
-             baseName = user.email?.split("@")[0] || "الرئيسي";
-          }
-          const genProjectId = user.id;
-          const newProjectDoc = {
-            name: `مشروع ${baseName}`,
-            ownerEmail: userEmailNormalized,
-            memberEmails: [userEmailNormalized],
-            members: [
-              {
-                email: userEmailNormalized,
-                name: baseName || "العضو",
-                role: "مالك",
-                status: "نشط"
+    const resolveWorkspace = async () => {
+      try {
+        setWorkspaceError(null);
+        const projectsRef = collection(db, "projects");
+        
+        // Step A: Search by ownerId (Primary Key)
+        let q = query(projectsRef, where("ownerId", "==", user.id));
+        let snapshot = await getDocs(q);
+        
+        // Step B: If not found, try fallback (legacy lookup by ownerEmail or memberEmails)
+        if (snapshot.empty) {
+          const userEmailNormalized = user.email?.toLowerCase().trim() || "";
+          if (userEmailNormalized) {
+            const emailQ = query(projectsRef, where("memberEmails", "array-contains", userEmailNormalized));
+            snapshot = await getDocs(emailQ);
+            
+            if (!snapshot.empty) {
+              // Find the oldest one owned by user email (or just the first one if none exactly match ownerEmail)
+              let bestDoc = snapshot.docs[0];
+              for (const docSnap of snapshot.docs) {
+                 if (docSnap.data().ownerEmail === userEmailNormalized) {
+                   bestDoc = docSnap;
+                   break; // Found an exact legacy match
+                 }
               }
-            ]
-          };
-          // Persist in Firestore
-          await setDoc(doc(db, "projects", genProjectId), newProjectDoc);
-          setActiveProject({
-            id: genProjectId,
-            ...newProjectDoc
-          } as ProjectWorkspace);
-        } catch (e) {
-          console.error("Critical: Failed to auto-bootstrap workspace:", e);
+              // Migrate it to have ownerId
+              await setDoc(doc(db, "projects", bestDoc.id), { ownerId: user.id }, { merge: true });
+              
+              // Re-fetch by ownerId to subscribe properly
+              q = query(projectsRef, where("ownerId", "==", user.id));
+            }
+          }
         }
+        
+        // Step C: Subscribe to the resolved query
+        unsubscribe = onSnapshot(q, async (snap) => {
+          if (!snap.empty) {
+            // Pick the first one
+            const docSnap = snap.docs[0];
+            setActiveProject({
+              id: docSnap.id,
+              ...docSnap.data()
+            } as ProjectWorkspace);
+            setIsLoadingProject(false);
+          } else {
+             // Not found at all. Check if user is truly new.
+             const currentUser = auth.currentUser;
+             const creation = currentUser?.metadata.creationTime;
+             const lastSignIn = currentUser?.metadata.lastSignInTime;
+             
+             // In Firebase, creationTime and lastSignInTime are strings.
+             const isNewUser = (creation && lastSignIn) 
+               ? Math.abs(Date.parse(lastSignIn) - Date.parse(creation)) < 5000 
+               : false;
+               
+             if (isNewUser) {
+               // Create workspace
+               try {
+                 const userEmailNormalized = user.email?.toLowerCase().trim() || "";
+                 let baseName = user.name || "الرئيسي";
+                 if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
+                    baseName = user.email?.split("@")[0] || "الرئيسي";
+                 }
+                 const newProjectDoc = {
+                   name: `مشروع ${baseName}`,
+                   ownerId: user.id,
+                   ownerEmail: userEmailNormalized,
+                   memberEmails: [userEmailNormalized],
+                   members: [
+                     {
+                       email: userEmailNormalized,
+                       name: baseName || "العضو",
+                       role: "مالك",
+                       status: "نشط"
+                     }
+                   ]
+                 };
+                 await setDoc(doc(db, "projects", user.id), newProjectDoc);
+                 // The onSnapshot will trigger again and pick this up.
+               } catch(e) {
+                 console.error("Critical: Failed to auto-bootstrap workspace:", e);
+                 setWorkspaceError("فشل إنشاء مساحة العمل الجديدة. يرجى المحاولة مرة أخرى.");
+                 setIsLoadingProject(false);
+               }
+             } else {
+                console.error("No workspace found for existing user. Not creating a new one.");
+                setActiveProject(null);
+                setWorkspaceError("لم يتم العثور على مساحة عمل لهذا الحساب. يرجى التأكد من تسجيل الدخول بالحساب الصحيح أو التواصل مع الدعم.");
+                setIsLoadingProject(false);
+             }
+          }
+        }, (error) => {
+          console.error("Firestore projects lookup error:", error);
+          setWorkspaceError("حدث خطأ أثناء جلب بيانات مساحة العمل.");
+          setIsLoadingProject(false);
+        });
+        
+      } catch (err) {
+        console.error("Workspace resolution failed:", err);
+        setWorkspaceError("حدث خطأ أثناء الاتصال بقاعدة البيانات.");
         setIsLoadingProject(false);
       }
-    }, (error) => {
-      console.error("Firestore projects lookup error:", error);
-      setIsLoadingProject(false);
-    });
+    };
+    
+    resolveWorkspace();
 
     return () => unsubscribe();
   }, [user]);
@@ -375,8 +426,6 @@ function MainApp() {
     try {
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       await deleteDoc(opDocRef);
-      // Immediately filter our local state to guarantee instantaneous update without any listener lags
-      setOperations((prev) => prev.filter(op => op.id !== opId));
       return true;
     } catch (e) {
       console.error("Firestore delete failed:", e);
@@ -397,6 +446,26 @@ function MainApp() {
 
   if (!user) {
     return <AuthScreens />;
+  }
+
+  if (workspaceError) {
+    return (
+      <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center p-4" dir="rtl">
+        <div className="bg-red-50 text-red-700 p-6 rounded-2xl max-w-md w-full border border-red-100 text-center space-y-4 shadow-sm">
+          <h2 className="text-xl font-bold">خطأ في مساحة العمل</h2>
+          <p className="text-sm">{workspaceError}</p>
+          <button 
+            onClick={() => {
+              setWorkspaceError(null);
+              logout();
+            }}
+            className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
+          >
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -430,6 +499,10 @@ function MainApp() {
               devices={devices}
               onDeleteDevice={handleDeleteDevice}
             />
+          )}
+
+          {activeTab === "debug" && (
+            <DebugPage activeProject={activeProject} />
           )}
         </div>
       </main>
@@ -518,6 +591,18 @@ function MainApp() {
         >
           <SettingsIcon className="w-4 h-4 shrink-0" />
           <span>الإعدادات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("debug")}
+          className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2.5 rounded-xl transition-all cursor-pointer text-[10px] sm:text-xs font-bold leading-none ${
+            activeTab === "debug"
+              ? "bg-white text-neutral-950 shadow-md font-black"
+              : "text-neutral-400 hover:text-white"
+          }`}
+        >
+          <Bug className="w-4 h-4 shrink-0" />
+          <span>فحص</span>
         </button>
       </nav>
 
