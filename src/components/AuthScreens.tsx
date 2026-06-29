@@ -111,8 +111,18 @@ export function AuthScreens() {
       await googleSignIn();
     } catch (err: any) {
       console.error(err);
-      if (err?.code === "auth/unauthorized-domain") {
+      if (err?.code === "auth/unauthorized-domain" || err?.message?.includes("unauthorized-domain")) {
         setMsg({ type: "error", text: "يجب إضافة رابط هذا التطبيق إلى قائمة النطاقات المصرح بها (Authorized domains) في إعدادات Firebase Authentication." });
+      } else if (err?.code === "auth/network-request-failed" || err?.message?.includes("network-request-failed")) {
+        setMsg({ 
+          type: "error", 
+          text: "فشل الاتصال بخادم قوقل. يرجى التأكد من إضافة رابط التطبيق (URL) إلى قائمة النطاقات المصرح بها (Authorized domains) في إعدادات Firebase Authentication، وإيقاف أي مانع إعلانات (Ad Blocker)، أو جرب فتح التطبيق في علامة تبويب جديدة." 
+        });
+      } else if (err?.code === "auth/popup-closed-by-user") {
+        setMsg({ 
+          type: "error", 
+          text: "تم إغلاق نافذة تسجيل الدخول. إذا كنت تستخدم التطبيق داخل نافذة معاينة، جرب فتح التطبيق في علامة تبويب جديدة ثم حاول تسجيل الدخول مجدداً." 
+        });
       } else {
         setMsg({ type: "error", text: `Error (${err.code || 'unknown'}): ${err.message || String(err)}` });
       }

@@ -24,7 +24,7 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: User }> => {
   try {
-    const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+    const result = await signInWithPopup(auth, provider);
     return { user: result.user };
   } catch (error: any) {
     console.error('Sign in error:', error);
