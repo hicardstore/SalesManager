@@ -110,7 +110,7 @@ function MainApp() {
 
   // 2. Sync Shared Operations database from Firestore
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeProject) {
       setOperations([]);
       setLoading(false);
       return;
@@ -118,8 +118,8 @@ function MainApp() {
     
     setLoading(true);
     
-    const opsRef = collection(db, "users", user.id, "operations");
-    // Listen for operations recorded under this user's UID directly
+    // Listen for operations recorded under the shared project workspace
+    const opsRef = collection(db, "projects", activeProject.id, "operations");
     const q = query(opsRef);
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -142,7 +142,7 @@ function MainApp() {
     });
 
     return () => unsubscribe();
-  }, [user?.id]);
+  }, [user?.id, activeProject?.id]);
 
   // 3. One-time Migration of local data and bad project names
   useEffect(() => {
@@ -171,16 +171,33 @@ function MainApp() {
         const qLegacy = query(legacyOpsRef, where("userId", "==", user.id));
         const legacySnap = await getDocs(qLegacy);
         if (!legacySnap.empty) {
-          console.log(`Found ${legacySnap.size} legacy operations in root collection, migrating to user subcollection...`);
+          console.log(`Found ${legacySnap.size} legacy operations in root collection, migrating to project subcollection...`);
           for (const docSnap of legacySnap.docs) {
             const opData = docSnap.data();
-            const newRef = doc(db, "users", user.id, "operations", docSnap.id);
+            const newRef = doc(db, "projects", activeProject.id, "operations", docSnap.id);
             await setDoc(newRef, { ...opData, id: docSnap.id }, { merge: true });
             await deleteDoc(docSnap.ref); // Delete the old root document
           }
         }
       } catch (err) {
         console.error("Legacy root operations migration failed:", err);
+      }
+
+      // Migrate from users/{userId}/operations to projects/{projectId}/operations
+      try {
+        const userOpsRef = collection(db, "users", user.id, "operations");
+        const userOpsSnap = await getDocs(userOpsRef);
+        if (!userOpsSnap.empty) {
+          console.log(`Found ${userOpsSnap.size} operations in user subcollection, migrating to project...`);
+          for (const docSnap of userOpsSnap.docs) {
+            const opData = docSnap.data();
+            const newRef = doc(db, "projects", activeProject.id, "operations", docSnap.id);
+            await setDoc(newRef, { ...opData, id: docSnap.id }, { merge: true });
+            await deleteDoc(docSnap.ref);
+          }
+        }
+      } catch (err) {
+        console.error("User ops to project ops migration failed:", err);
       }
 
       // b) Migrate any stuck local operations to Cloud Firestore
@@ -196,7 +213,7 @@ function MainApp() {
                 for (const op of parsed) {
                   // Make sure we have an ID
                   const opId = op.id || `migrated_${Math.random().toString(36).substr(2, 9)}`;
-                  const opRef = doc(db, "users", user.id, "operations", opId);
+                  const opRef = doc(db, "projects", activeProject.id, "operations", opId);
                   const dbPayload = {
                     ...op,
                     id: opId,
@@ -332,7 +349,7 @@ function MainApp() {
 
   // Local/Cloud handler to manage operations instantly
   const handleAddOperation = async (payload: any): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !activeProject) return false;
 
     try {
       const dbPayload = {
@@ -343,7 +360,7 @@ function MainApp() {
         date: new Date().toISOString()
       };
       
-      const opsRef = collection(db, "users", user.id, "operations");
+      const opsRef = collection(db, "projects", activeProject.id, "operations");
       await addDoc(opsRef, dbPayload);
       return true;
     } catch (e) {
@@ -353,10 +370,10 @@ function MainApp() {
   };
 
   const handleDeleteOperation = async (opId: string): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !activeProject) return false;
 
     try {
-      const opDocRef = doc(db, "users", user.id, "operations", opId);
+      const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       await deleteDoc(opDocRef);
       // Immediately filter our local state to guarantee instantaneous update without any listener lags
       setOperations((prev) => prev.filter(op => op.id !== opId));

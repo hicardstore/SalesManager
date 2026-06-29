@@ -5,7 +5,8 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Use the specific firestoreDatabaseId if it exists, otherwise it defaults to (default)
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)");
 
 const provider = new GoogleAuthProvider();
 
