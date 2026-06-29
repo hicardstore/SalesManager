@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, initAuth, googleSignIn as firebaseGoogleSignIn } from "../firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, signInAnonymously, updatePassword, deleteUser } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, signInAnonymously, updatePassword, deleteUser, getRedirectResult } from "firebase/auth";
 
 interface User {
   id: string;
@@ -30,6 +30,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for redirect result first
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        // Redirect login was successful
+        const userInfo = {
+          id: result.user.uid,
+          email: result.user.email || "guest@finance.local",
+          name: result.user.displayName || (result.user.email ? result.user.email.split("@")[0] : "مستخدم")
+        };
+        setUser(userInfo);
+      }
+    }).catch((error) => {
+      console.error("Redirect login error:", error);
+    });
+
     const unsubscribe = initAuth(
       (firebaseUser) => {
         const userInfo = {

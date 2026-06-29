@@ -51,7 +51,14 @@ function MainApp() {
     const projectsRef = collection(db, "projects");
     const q = query(projectsRef, where("memberEmails", "array-contains", userEmailNormalized));
 
+    let isBootstrapping = false;
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // If it's empty AND from cache, wait for the server response
+      if (snapshot.empty && snapshot.metadata.fromCache) {
+        return;
+      }
+
       if (!snapshot.empty) {
         const docSnap = snapshot.docs[0];
         const data = docSnap.data();
@@ -60,8 +67,9 @@ function MainApp() {
           ...data
         } as ProjectWorkspace);
         setIsLoadingProject(false);
-      } else {
-        // No shared workspace contains this user - bootstrap a new one with user details
+      } else if (!isBootstrapping) {
+        isBootstrapping = true;
+        // No shared workspace contains this user on the server - bootstrap a new one with user details
         try {
           let baseName = user.name || "الرئيسي";
           if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
