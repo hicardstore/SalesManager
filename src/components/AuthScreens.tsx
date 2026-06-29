@@ -90,14 +90,26 @@ export function AuthScreens() {
       }
 
       let arabicError = "حدث خطأ ما. يرجى المحاولة مرة أخرى.";
-      if (errorMsg.includes("user-not-found") || errorMsg.includes("wrong-password") || errorMsg.includes("invalid-credential")) {
-        arabicError = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-      } else if (errorMsg.includes("email-already-in-use")) {
-        arabicError = "البريد الإلكتروني مسجل بالفعل بالنظام.";
-      } else if (errorMsg.includes("invalid-email")) {
-        arabicError = "صيغة البريد الإلكتروني غير صالحة.";
-      } else if (err?.message) {
-        arabicError = err.message;
+      if (mode === "reset") {
+        if (err?.message) {
+          arabicError = err.message;
+        } else if (errorMsg.includes("user-not-found") || errorMsg.includes("invalid-credential") || errCode === "auth/user-not-found" || errCode === "auth/invalid-credential") {
+          arabicError = "هذا البريد الإلكتروني غير مسجل لدينا في النظام. يرجى التأكد من كتابة البريد بشكل صحيح أو إنشاء حساب جديد.";
+        } else if (errorMsg.includes("invalid-email") || errCode === "auth/invalid-email") {
+          arabicError = "صيغة البريد الإلكتروني غير صالحة.";
+        } else if (errorMsg.includes("unauthorized-domain") || errCode === "auth/unauthorized-domain") {
+          arabicError = `فشل الإرسال: هذا النطاق (${window.location.hostname}) غير مصرح به في Firebase. يرجى إضافته في لوحة تحكم Firebase Console الخاصة بك تحت: Authentication -> Settings -> Authorized Domains.`;
+        }
+      } else {
+        if (errorMsg.includes("user-not-found") || errorMsg.includes("wrong-password") || errorMsg.includes("invalid-credential")) {
+          arabicError = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+        } else if (errorMsg.includes("email-already-in-use")) {
+          arabicError = "البريد الإلكتروني مسجل بالفعل بالنظام.";
+        } else if (errorMsg.includes("invalid-email")) {
+          arabicError = "صيغة البريد الإلكتروني غير صالحة.";
+        } else if (err?.message) {
+          arabicError = err.message;
+        }
       }
       setMsg({ type: "error", text: arabicError });
     }
@@ -307,6 +319,9 @@ export function AuthScreens() {
                 💡 لماذا قد لا يصل بريد إعادة تعيين كلمة المرور؟
               </span>
               <ul className="list-disc list-inside space-y-1.5 pr-1 font-medium">
+                <li>
+                  <strong>عدم تفعيل النطاق (Authorized Domains)</strong>: يجب إضافة نطاق هذا الموقع <code className="bg-amber-100/60 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">{window.location.hostname}</code> إلى قائمة النطاقات المصرح بها في لوحة تحكم Firebase Console الخاصة بمشروعك (Authentication &gt; Settings &gt; Authorized domains)، وإلا فإن خوادم Firebase ستحظر إرسال الرسائل.
+                </li>
                 <li>
                   <strong>مجلد الرسائل غير المرغوب فيها (Spam/Junk)</strong>: غالباً ما تصنف أنظمة البريد الإلكتروني رسائل Firebase التلقائية كرسائل غير مرغوب فيها. يرجى مراجعة هذا المجلد في بريدك.
                 </li>

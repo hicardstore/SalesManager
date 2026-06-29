@@ -214,11 +214,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    // Check if it's a guest or demo local account email
+    if (trimmedEmail.endsWith("@salesmanager.pro") || trimmedEmail.includes("guest@") || trimmedEmail.includes("offline")) {
+      return { 
+        success: true, 
+        method: "local", 
+        tempPassword: "123456" 
+      };
+    }
+
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, trimmedEmail);
       return { success: true, method: "firebase" };
     } catch (err: any) {
-      throw new Error("حدث خطأ أثناء استعادة كلمة المرور: " + err.message);
+      const errCode = err?.code || "";
+      const errMsg = err?.message || "";
+      console.error("Firebase sendPasswordResetEmail error:", err);
+
+      if (errCode === "auth/unauthorized-domain" || errMsg.includes("unauthorized-domain")) {
+        throw new Error(
+          `فشل الإرسال: هذا النطاق (${window.location.hostname}) غير مصرح به في إعدادات مشروع Firebase الخاص بك. يرجى إضافة هذا النطاق في لوحة تحكم Firebase تحت: Authentication -> Settings -> Authorized Domains ليعمل الإرسال بشكل سليم.`
+        );
+      }
+      if (errCode === "auth/user-not-found" || errMsg.includes("user-not-found")) {
+        throw new Error("هذا البريد الإلكتروني غير مسجل في النظام. يرجى التأكد من كتابة البريد بشكل صحيح أو إنشاء حساب جديد.");
+      }
+      if (errCode === "auth/invalid-email" || errMsg.includes("invalid-email")) {
+        throw new Error("صيغة البريد الإلكتروني غير صالحة. يرجى التأكد من إدخال بريد إلكتروني صحيح.");
+      }
+      if (errCode === "auth/operation-not-allowed" || errMsg.includes("operation-not-allowed")) {
+        throw new Error(
+          "خدمة إرسال بريد استعادة كلمة المرور غير مفعلة. يرجى تفعيل موفر البريد الإلكتروني (Email/Password) في لوحة تحكم Firebase الخاصة بك تحت تبويب Sign-in providers."
+        );
+      }
+      if (errCode === "auth/too-many-requests" || errMsg.includes("too-many-requests")) {
+        throw new Error("تم إرسال طلبات كثيرة في وقت قصير لحماية هذا الحساب. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.");
+      }
+      
+      throw new Error("حدث خطأ أثناء محاولة إرسال بريد استعادة كلمة المرور: " + (err.message || errCode));
     }
   };
 
