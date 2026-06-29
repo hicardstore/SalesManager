@@ -100,12 +100,80 @@ export function DebugPage({ activeProject }: DebugPageProps) {
       </h2>
       
       {/* Verification Test */}
-      <section className="space-y-3 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
-        <h3 className="text-lg font-semibold text-emerald-800 text-right">اختبار التحقق من المزامنة (Verification Test)</h3>
-        <p className="text-sm text-emerald-900 text-right">
-          بناءً على التعديلات الأخيرة، أصبح معرّف مساحة العمل (Workspace ID) مرتبطاً بشكل مباشر وحصري بـ Firebase Auth UID (ownerId).
-          هذا يعني رياضياً وهندسياً أنه <strong>من المستحيل</strong> أن يتم إنشاء مساحة عمل جديدة لنفس الحساب عند تسجيل الدخول من جهاز آخر. سيتم دائماً إرجاع نفس الـ Workspace ID بالضبط، ونفس قائمة العمليات.
+      <section className="space-y-3 bg-emerald-50 p-5 rounded-2xl border border-emerald-200">
+        <h3 className="text-lg font-black text-emerald-800 text-right">نتائج اختبار التحقق (Verification Test Logs)</h3>
+        
+        <p className="text-sm text-emerald-900 text-right leading-relaxed">
+          يقوم هذا الجزء بمقارنة قيم مساحة العمل والعمليات قبل تسجيل الخروج وبعد تسجيل الدخول مرة أخرى للتحقق من المزامنة وضمان عدم تكرار مساحات العمل.
         </p>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-left" dir="ltr">
+          <div className="bg-white p-4 rounded-xl border border-emerald-100 space-y-2">
+            <h4 className="font-bold text-xs text-neutral-500 uppercase tracking-wider">Workspace ID Verification</h4>
+            <div className="flex flex-col space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-neutral-600 font-medium">Before Logout:</span>
+                <span className="font-mono text-neutral-800 font-semibold">{localStorage.getItem("test_workspace_before_logout") || "N/A"}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-neutral-600 font-medium">After Login:</span>
+                <span className="font-mono text-neutral-800 font-semibold">{activeProject?.id || "N/A"}</span>
+              </div>
+              <div className="pt-2 border-t border-dashed border-neutral-100 flex justify-between items-center text-xs">
+                <span className="text-neutral-500 font-medium">Status:</span>
+                {localStorage.getItem("test_workspace_before_logout") ? (
+                  localStorage.getItem("test_workspace_before_logout") === activeProject?.id ? (
+                    <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">PASSED ✓ (Matched)</span>
+                  ) : (
+                    <span className="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded">FAILED ✗ (Mismatched)</span>
+                  )
+                ) : (
+                  <span className="text-neutral-400 italic">Sign out and in again to trigger</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-emerald-100 space-y-2">
+            <h4 className="font-bold text-xs text-neutral-500 uppercase tracking-wider">Operation Count Verification</h4>
+            <div className="flex flex-col space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-neutral-600 font-medium">Before Logout:</span>
+                <span className="font-mono text-neutral-800 font-semibold">{localStorage.getItem("test_ops_count_before_logout") || "N/A"}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-neutral-600 font-medium">After Login:</span>
+                <span className="font-mono text-neutral-800 font-semibold">
+                  {activeProjectMatches ? activeProjectMatches.operationsCount : "N/A"}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-dashed border-neutral-100 flex justify-between items-center text-xs">
+                <span className="text-neutral-500 font-medium">Status:</span>
+                {localStorage.getItem("test_ops_count_before_logout") ? (
+                  parseInt(localStorage.getItem("test_ops_count_before_logout") || "0", 10) === (activeProjectMatches?.operationsCount || 0) ? (
+                    <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">PASSED ✓ (Matched)</span>
+                  ) : (
+                    <span className="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded">FAILED ✗ (Mismatched)</span>
+                  )
+                ) : (
+                  <span className="text-neutral-400 italic">Sign out and in again to trigger</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {localStorage.getItem("test_workspace_before_logout") && 
+         localStorage.getItem("test_workspace_before_logout") === activeProject?.id && 
+         parseInt(localStorage.getItem("test_ops_count_before_logout") || "0", 10) === (activeProjectMatches?.operationsCount || 0) ? (
+          <div className="mt-4 p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-emerald-950 text-xs font-black text-center">
+            🎉 تم اجتياز جميع اختبارات التحقق بنجاح! القيم متطابقة تماماً ومسجلة في السجل.
+          </div>
+        ) : localStorage.getItem("test_workspace_before_logout") ? (
+          <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-950 text-xs font-black text-center">
+            ⚠️ الاختبار لم يكتمل بنجاح أو هناك اختلاف في القيم. يرجى مراجعة التفاصيل أعلاه.
+          </div>
+        ) : null}
       </section>
 
       {/* 8. Firestore Connection Info */}

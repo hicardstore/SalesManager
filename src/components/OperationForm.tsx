@@ -138,8 +138,8 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
       } else {
         setErrorMessage("فشل في إكمال وتسجيل العملية. يرجى التحقق من الخادم.");
       }
-    } catch (err) {
-      setErrorMessage("حدث خطأ ما أثناء حفظ البيانات.");
+    } catch (err: any) {
+      setErrorMessage(err?.message || "حدث خطأ ما أثناء حفظ البيانات.");
     } finally {
       setIsSubmitting(false);
     }

@@ -12,6 +12,53 @@ import { DebugPage } from "./components/DebugPage";
 import { db, auth } from "./firebase";
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "settings" | "debug">("dashboard");
@@ -400,8 +447,10 @@ function MainApp() {
 
   // Local/Cloud handler to manage operations instantly
   const handleAddOperation = async (payload: any): Promise<boolean> => {
-    if (!user || !activeProject) return false;
+    if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
+    if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة لتسجيل العملية فيها.");
 
+    const path = `projects/${activeProject.id}/operations`;
     try {
       const dbPayload = {
         ...payload,
@@ -415,20 +464,22 @@ function MainApp() {
       await addDoc(opsRef, dbPayload);
       return true;
     } catch (e) {
-      console.error("Firestore serialization failed:", e);
+      handleFirestoreError(e, OperationType.WRITE, path);
       return false;
     }
   };
 
   const handleDeleteOperation = async (opId: string): Promise<boolean> => {
-    if (!user || !activeProject) return false;
+    if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
+    if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة.");
 
+    const path = `projects/${activeProject.id}/operations/${opId}`;
     try {
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       await deleteDoc(opDocRef);
       return true;
     } catch (e) {
-      console.error("Firestore delete failed:", e);
+      handleFirestoreError(e, OperationType.DELETE, path);
       return false;
     }
   };
@@ -539,6 +590,11 @@ function MainApp() {
                 </button>
                 <button
                   onClick={() => {
+                    if (activeProject) {
+                      localStorage.setItem("test_workspace_before_logout", activeProject.id);
+                      localStorage.setItem("test_ops_count_before_logout", operations.length.toString());
+                      console.log("LOG TEST: Saved Workspace ID before logout =", activeProject.id, ", operations count =", operations.length);
+                    }
                     logout();
                     setShowLogoutConfirm(false);
                   }}
