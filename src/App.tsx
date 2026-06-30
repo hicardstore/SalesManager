@@ -142,51 +142,35 @@ function MainApp() {
             } as ProjectWorkspace);
             setIsLoadingProject(false);
           } else {
-             // Not found at all. Check if user is truly new.
-             const currentUser = auth.currentUser;
-             const creation = currentUser?.metadata.creationTime;
-             const lastSignIn = currentUser?.metadata.lastSignInTime;
-             
-             // In Firebase, creationTime and lastSignInTime are strings.
-             const isNewUser = (creation && lastSignIn) 
-               ? Math.abs(Date.parse(lastSignIn) - Date.parse(creation)) < 5000 
-               : false;
-               
-             if (isNewUser) {
-               // Create workspace
-               try {
-                 const userEmailNormalized = user.email?.toLowerCase().trim() || "";
-                 let baseName = user.name || "الرئيسي";
-                 if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
-                    baseName = user.email?.split("@")[0] || "الرئيسي";
-                 }
-                 const newProjectDoc = {
-                   name: `مشروع ${baseName}`,
-                   ownerId: user.id,
-                   ownerEmail: userEmailNormalized,
-                   memberEmails: [userEmailNormalized],
-                   members: [
-                     {
-                       email: userEmailNormalized,
-                       name: baseName || "العضو",
-                       role: "مالك",
-                       status: "نشط"
-                     }
-                   ]
-                 };
-                 await setDoc(doc(db, "projects", user.id), newProjectDoc);
-                 // The onSnapshot will trigger again and pick this up.
-               } catch(e) {
-                 console.error("Critical: Failed to auto-bootstrap workspace:", e);
-                 setWorkspaceError("فشل إنشاء مساحة العمل الجديدة. يرجى المحاولة مرة أخرى.");
-                 setIsLoadingProject(false);
-               }
-             } else {
-                console.error("No workspace found for existing user. Not creating a new one.");
-                setActiveProject(null);
-                setWorkspaceError("لم يتم العثور على مساحة عمل لهذا الحساب. يرجى التأكد من تسجيل الدخول بالحساب الصحيح أو التواصل مع الدعم.");
-                setIsLoadingProject(false);
-             }
+            // If workspace is missing for any reason (e.g. account re-registration or deleted database document),
+            // auto-create it instantly to prevent lockouts and ensure a lightning-fast initial load.
+            try {
+              const userEmailNormalized = user.email?.toLowerCase().trim() || "";
+              let baseName = user.name || "الرئيسي";
+              if (baseName.includes("مستخدم ضيف") || baseName.includes("زائر تجريبي") || !user.name) {
+                 baseName = user.email?.split("@")[0] || "الرئيسي";
+              }
+              const newProjectDoc = {
+                name: `مشروع ${baseName}`,
+                ownerId: user.id,
+                ownerEmail: userEmailNormalized,
+                memberEmails: [userEmailNormalized],
+                members: [
+                  {
+                    email: userEmailNormalized,
+                    name: baseName || "العضو",
+                    role: "مالك",
+                    status: "نشط"
+                  }
+                ]
+              };
+              await setDoc(doc(db, "projects", user.id), newProjectDoc);
+              // The onSnapshot will trigger again and pick this up.
+            } catch(e) {
+              console.error("Critical: Failed to auto-bootstrap workspace:", e);
+              setWorkspaceError("فشل إنشاء مساحة العمل الجديدة. يرجى المحاولة مرة أخرى.");
+              setIsLoadingProject(false);
+            }
           }
         }, (error) => {
           console.error("Firestore projects lookup error:", error);
