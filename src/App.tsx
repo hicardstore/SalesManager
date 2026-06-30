@@ -487,12 +487,13 @@ function MainApp() {
     if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
     if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة.");
 
-    const path = `projects/${activeProject.id}/operations/${opId}`;
-    try {
-      // Find the operation from current active state to back it up
-      const opToBackup = operations.find(o => o.id === opId);
-      if (opToBackup) {
-        // Build a clean, typed backup document containing only primitive fields
+    const backupPath = `projects/${activeProject.id}/deleted_operations/${opId}`;
+    const deletePath = `projects/${activeProject.id}/operations/${opId}`;
+
+    // 1. Find the operation from current active state and attempt to back it up
+    const opToBackup = operations.find(o => o.id === opId);
+    if (opToBackup) {
+      try {
         const cleanBackup = {
           clientId: opToBackup.clientId || "",
           clientName: opToBackup.clientName || "",
@@ -513,13 +514,19 @@ function MainApp() {
           ...cleanBackup,
           deletedAt: new Date().toISOString()
         });
+      } catch (e) {
+        console.error("Warning: Backup to deleted_operations subcollection failed:", e);
+        // We log the error but still proceed with the deletion to prevent locking the app delete flow
       }
+    }
 
+    // 2. Perform the main deletion from operations collection
+    try {
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       await deleteDoc(opDocRef);
       return true;
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, path);
+      handleFirestoreError(e, OperationType.DELETE, deletePath);
       return false;
     }
   };
@@ -528,12 +535,14 @@ function MainApp() {
     if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
     if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة.");
 
-    const path = `projects/${activeProject.id}/deleted_operations/${opId}`;
-    try {
-      const opToRestore = deletedOperations.find(o => o.id === opId);
-      if (!opToRestore) return false;
+    const restorePath = `projects/${activeProject.id}/operations/${opId}`;
+    const deleteBackupPath = `projects/${activeProject.id}/deleted_operations/${opId}`;
 
-      // 1. Copy back to operations subcollection
+    const opToRestore = deletedOperations.find(o => o.id === opId);
+    if (!opToRestore) return false;
+
+    // 1. Copy back to operations subcollection
+    try {
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       const cleanOp = {
         clientId: opToRestore.clientId || "",
@@ -552,15 +561,20 @@ function MainApp() {
         createdAt: serverTimestamp()
       };
       await setDoc(opDocRef, cleanOp);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, restorePath);
+      return false;
+    }
 
-      // 2. Delete from deleted_operations subcollection
+    // 2. Delete from deleted_operations subcollection
+    try {
       const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
       await deleteDoc(deletedDocRef);
-
       return true;
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, path);
-      return false;
+      console.error("Warning: Cleaning up restored document from deleted_operations subcollection failed:", e);
+      // Return true anyway because the document has been successfully restored to the main dashboard
+      return true;
     }
   };
 
