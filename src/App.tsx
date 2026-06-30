@@ -63,6 +63,7 @@ function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "settings" | "debug">("dashboard");
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [deletedOperations, setDeletedOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -194,6 +195,7 @@ function MainApp() {
   useEffect(() => {
     if (!user || !activeProject) {
       setOperations([]);
+      setDeletedOperations([]);
       setLoading(false);
       return;
     }
@@ -223,7 +225,35 @@ function MainApp() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Listen for deleted operations recorded under the shared project workspace
+    const deletedOpsRef = collection(db, "projects", activeProject.id, "deleted_operations");
+    const qDeleted = query(deletedOpsRef);
+    
+    const unsubscribeDeleted = onSnapshot(qDeleted, (snapshot) => {
+      const fetchedDeletedOps: Operation[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedDeletedOps.push({
+          ...(data as any),
+          id: doc.id,
+          date: data.date || new Date().toISOString()
+        } as Operation);
+      });
+      // Sort deleted by date (most recently deleted first)
+      fetchedDeletedOps.sort((a, b) => {
+        const timeA = (a as any).deletedAt ? new Date((a as any).deletedAt).getTime() : new Date(a.date).getTime();
+        const timeB = (b as any).deletedAt ? new Date((b as any).deletedAt).getTime() : new Date(b.date).getTime();
+        return timeB - timeA;
+      });
+      setDeletedOperations(fetchedDeletedOps);
+    }, (error) => {
+      console.error("Firestore deleted operations sync error:", error);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeDeleted();
+    };
   }, [user?.id, activeProject?.id]);
 
   // 3. One-time Migration of local data and bad project names
@@ -459,11 +489,46 @@ function MainApp() {
 
     const path = `projects/${activeProject.id}/operations/${opId}`;
     try {
+      // Find the operation from current active state to back it up
+      const opToBackup = operations.find(o => o.id === opId);
+      if (opToBackup) {
+        const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
+        await setDoc(deletedDocRef, {
+          ...opToBackup,
+          deletedAt: new Date().toISOString()
+        });
+      }
+
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       await deleteDoc(opDocRef);
       return true;
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
+      return false;
+    }
+  };
+
+  const handleRestoreOperation = async (opId: string): Promise<boolean> => {
+    if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
+    if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة.");
+
+    const path = `projects/${activeProject.id}/deleted_operations/${opId}`;
+    try {
+      const opToRestore = deletedOperations.find(o => o.id === opId);
+      if (!opToRestore) return false;
+
+      // 1. Copy back to operations subcollection
+      const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
+      const { deletedAt, ...cleanOp } = opToRestore as any;
+      await setDoc(opDocRef, cleanOp);
+
+      // 2. Delete from deleted_operations subcollection
+      const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
+      await deleteDoc(deletedDocRef);
+
+      return true;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, path);
       return false;
     }
   };
@@ -521,9 +586,11 @@ function MainApp() {
           {activeTab === "dashboard" && (
             <FinanceDashboard 
               operations={operations}
+              deletedOperations={deletedOperations}
               isLoading={loading}
               onNavigateToNew={() => setActiveTab("create")}
               onDeleteOperation={handleDeleteOperation}
+              onRestoreOperation={handleRestoreOperation}
             />
           )}
 

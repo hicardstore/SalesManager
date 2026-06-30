@@ -27,12 +27,21 @@ import { useAuth } from "../context/AuthContext";
 
 interface FinanceDashboardProps {
   operations: Operation[];
+  deletedOperations?: Operation[];
   onNavigateToNew: () => void;
   isLoading?: boolean;
   onDeleteOperation?: (opId: string) => Promise<boolean>;
+  onRestoreOperation?: (opId: string) => Promise<boolean>;
 }
 
-export default function FinanceDashboard({ operations, onNavigateToNew, isLoading, onDeleteOperation }: FinanceDashboardProps) {
+export default function FinanceDashboard({ 
+  operations, 
+  deletedOperations = [], 
+  onNavigateToNew, 
+  isLoading, 
+  onDeleteOperation,
+  onRestoreOperation
+}: FinanceDashboardProps) {
   const { user } = useAuth();
   // Advanced filters state
   const [filterGroup, setFilterGroup] = useState<"all" | "major" | "minor" | "custom">("all");
@@ -42,9 +51,15 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Prevent background scrolling when transaction details modal or delete confirmation is open
+  // States for deleted records modal and restoration
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+  const [isRestoringId, setIsRestoringId] = useState<string | null>(null);
+  const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Prevent background scrolling when transaction details modal, delete confirmation, or deleted records modal is open
   React.useEffect(() => {
-    if (selectedOp || opToDelete) {
+    if (selectedOp || opToDelete || showDeletedModal) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -52,7 +67,28 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
     return () => {
       document.body.style.overflow = "";
     };
-  }, [selectedOp, opToDelete]);
+  }, [selectedOp, opToDelete, showDeletedModal]);
+
+  const handleRestoreClick = async (opId: string) => {
+    if (!onRestoreOperation) return;
+    setIsRestoringId(opId);
+    setRestoreError(null);
+    setRestoreSuccess(null);
+    try {
+      const success = await onRestoreOperation(opId);
+      if (success) {
+        setRestoreSuccess("تم استرجاع العملية بنجاح وإعادتها إلى سجل العمليات.");
+        setTimeout(() => setRestoreSuccess(null), 3500);
+      } else {
+        setRestoreError("فشل استرجاع العملية. يرجى المحاولة مرة أخرى.");
+      }
+    } catch (err) {
+      console.error("Error restoring operation:", err);
+      setRestoreError("حدث خطأ أثناء استرجاع العملية.");
+    } finally {
+      setIsRestoringId(null);
+    }
+  };
   const [isExporting, setIsExporting] = useState(false);
   
   // Date filter state
@@ -500,12 +536,32 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
               </div>
             </div>
 
-            {/* Dynamic Operations Count badge */}
-            <div className="flex items-center gap-1.5 self-end sm:self-auto text-xs">
-              <span className="text-[10.5px] font-bold text-neutral-400">إجمالي السجل:</span>
-              <span className="text-xs font-black bg-neutral-100 text-neutral-900 px-2.5 py-0.5 rounded-full">
-                {operations.length} عملية مبيعات مسجلة
-              </span>
+            {/* Deleted operations log button & Operations Count badge */}
+            <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setRestoreError(null);
+                  setRestoreSuccess(null);
+                  setShowDeletedModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200 text-red-700 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>السجلات المحذوفة</span>
+                {deletedOperations.length > 0 && (
+                  <span className="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-sans">
+                    {deletedOperations.length}
+                  </span>
+                )}
+              </button>
+
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-[10.5px] font-bold text-neutral-400">إجمالي السجل:</span>
+                <span className="text-xs font-black bg-neutral-100 text-neutral-900 px-2.5 py-0.5 rounded-full">
+                  {operations.length} عملية مبيعات مسجلة
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -1008,6 +1064,147 @@ export default function FinanceDashboard({ operations, onNavigateToNew, isLoadin
               </motion.div>
             </div>
           )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* DELETED RECORDS WINDOW / MODAL */}
+      {typeof document !== "undefined" && showDeletedModal && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeletedModal(false)}
+              className="absolute inset-0 bg-neutral-950/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className="bg-white rounded-3xl border border-neutral-200/50 p-6 max-w-2xl w-full overflow-hidden shadow-2xl relative z-10 flex flex-col h-[85vh] md:h-[75vh]"
+              dir="rtl"
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-neutral-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-neutral-950">سجل العمليات المحذوفة</h3>
+                    <p className="text-[10px] text-neutral-400">يمكنك استرجاع أي عملية تم حذفها لإعادتها للوحة القيادة فوراً</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeletedModal(false)}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Success & Error alerts */}
+              {(restoreSuccess || restoreError) && (
+                <div className="mt-3">
+                  {restoreSuccess && (
+                    <div className="text-center text-[11px] text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-100 font-bold">
+                      {restoreSuccess}
+                    </div>
+                  )}
+                  {restoreError && (
+                    <div className="text-center text-[11px] text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-100 font-bold">
+                      {restoreError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Scrollable Deleted List */}
+              <div className="flex-1 overflow-y-auto mt-4 pr-1 space-y-3.5 scrollbar-thin">
+                {deletedOperations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-neutral-400 space-y-2.5">
+                    <div className="w-12 h-12 rounded-full bg-neutral-50 flex items-center justify-center border border-dashed border-neutral-200">
+                      <Trash2 className="w-6 h-6 text-neutral-300 stroke-[1.5]" />
+                    </div>
+                    <p className="text-xs font-bold text-neutral-500">سلة المهملات فارغة</p>
+                    <p className="text-[10px] text-neutral-400">لا توجد أي سجلات محذوفة في مساحة العمل هذه حالياً.</p>
+                  </div>
+                ) : (
+                  deletedOperations.map((op) => {
+                    const groupInfo = getGroupDetails(op.packageAmount, op.totalInstallmentAmount);
+                    const providerStyle = getProviderBadge(op.provider);
+                    const isCurrentlyRestoring = isRestoringId === op.id;
+
+                    return (
+                      <div
+                        key={op.id}
+                        className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/50 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-neutral-50/80 transition-all"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10.5px] font-black bg-neutral-200 text-neutral-850 px-2 py-0.5 rounded">
+                              {op.id}
+                            </span>
+                            <span className={`text-[9.5px] font-black px-2 py-0.5 rounded border ${providerStyle.bg}`}>
+                              {op.provider}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs font-black text-neutral-900">
+                              اسم العميل: <span className="font-bold text-neutral-700">{op.clientName || "غير محدد"}</span>
+                            </p>
+                            <p className="text-[10.5px] text-neutral-500 font-bold">
+                              الفئة: {groupInfo.label} | مبلغ الكاش: {op.packageAmount.toLocaleString()} ر.س
+                            </p>
+                            {(op as any).deletedAt && (
+                              <p className="text-[9px] text-red-500 font-bold">
+                                تم الحذف في: {new Date((op as any).deletedAt).toLocaleString("ar-SA")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-end border-t border-neutral-200/40 pt-3 md:pt-0 md:border-t-0">
+                          <button
+                            type="button"
+                            disabled={isRestoringId !== null}
+                            onClick={() => handleRestoreClick(op.id)}
+                            className="w-full md:w-auto px-4 h-9 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all disabled:opacity-50"
+                          >
+                            {isCurrentlyRestoring ? (
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                                <span>استرجاع السجل</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-neutral-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowDeletedModal(false)}
+                  className="px-5 h-10 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-bold border border-neutral-200/50 cursor-pointer active:scale-98 transition-all"
+                >
+                  إغلاق نافذة السجلات
+                </button>
+              </div>
+            </motion.div>
+          </div>
         </AnimatePresence>,
         document.body
       )}

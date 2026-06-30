@@ -11,6 +11,8 @@ html, body, #root {
   overscroll-behavior-x: none !important;
   overscroll-behavior-y: none !important;
   -webkit-overflow-scrolling: auto;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
