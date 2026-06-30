@@ -492,9 +492,11 @@ function MainApp() {
       // Find the operation from current active state to back it up
       const opToBackup = operations.find(o => o.id === opId);
       if (opToBackup) {
+        // Strip undefined properties to prevent Firestore SDK from crashing
+        const cleanBackup = JSON.parse(JSON.stringify(opToBackup));
         const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
         await setDoc(deletedDocRef, {
-          ...opToBackup,
+          ...cleanBackup,
           deletedAt: new Date().toISOString()
         });
       }
@@ -520,7 +522,9 @@ function MainApp() {
       // 1. Copy back to operations subcollection
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
       const { deletedAt, ...cleanOp } = opToRestore as any;
-      await setDoc(opDocRef, cleanOp);
+      // Strip undefined properties to prevent Firestore SDK from crashing
+      const sanitizedOp = JSON.parse(JSON.stringify(cleanOp));
+      await setDoc(opDocRef, sanitizedOp);
 
       // 2. Delete from deleted_operations subcollection
       const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
