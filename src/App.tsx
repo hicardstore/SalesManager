@@ -492,8 +492,22 @@ function MainApp() {
       // Find the operation from current active state to back it up
       const opToBackup = operations.find(o => o.id === opId);
       if (opToBackup) {
-        // Strip undefined properties to prevent Firestore SDK from crashing
-        const cleanBackup = JSON.parse(JSON.stringify(opToBackup));
+        // Build a clean, typed backup document containing only primitive fields
+        const cleanBackup = {
+          clientId: opToBackup.clientId || "",
+          clientName: opToBackup.clientName || "",
+          date: opToBackup.date || new Date().toISOString(),
+          status: opToBackup.status || "مكتمل",
+          packageAmount: Number(opToBackup.packageAmount) || 0,
+          totalInstallmentAmount: Number(opToBackup.totalInstallmentAmount) || 0,
+          downPayment: Number(opToBackup.downPayment) || 0,
+          remainingAmount: Number(opToBackup.remainingAmount) || 0,
+          provider: opToBackup.provider || "إمكان",
+          monthlyInstallment: Number(opToBackup.monthlyInstallment) || 0,
+          durationMonths: Number(opToBackup.durationMonths) || 0,
+          commissionFee: Number(opToBackup.commissionFee || 0),
+          userId: user.id
+        };
         const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
         await setDoc(deletedDocRef, {
           ...cleanBackup,
@@ -521,10 +535,23 @@ function MainApp() {
 
       // 1. Copy back to operations subcollection
       const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
-      const { deletedAt, ...cleanOp } = opToRestore as any;
-      // Strip undefined properties to prevent Firestore SDK from crashing
-      const sanitizedOp = JSON.parse(JSON.stringify(cleanOp));
-      await setDoc(opDocRef, sanitizedOp);
+      const cleanOp = {
+        clientId: opToRestore.clientId || "",
+        clientName: opToRestore.clientName || "",
+        date: opToRestore.date || new Date().toISOString(),
+        status: opToRestore.status || "مكتمل",
+        packageAmount: Number(opToRestore.packageAmount) || 0,
+        totalInstallmentAmount: Number(opToRestore.totalInstallmentAmount) || 0,
+        downPayment: Number(opToRestore.downPayment) || 0,
+        remainingAmount: Number(opToRestore.remainingAmount) || 0,
+        provider: opToRestore.provider || "إمكان",
+        monthlyInstallment: Number(opToRestore.monthlyInstallment) || 0,
+        durationMonths: Number(opToRestore.durationMonths) || 0,
+        commissionFee: Number(opToRestore.commissionFee || 0),
+        userId: user.id,
+        createdAt: serverTimestamp()
+      };
+      await setDoc(opDocRef, cleanOp);
 
       // 2. Delete from deleted_operations subcollection
       const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);

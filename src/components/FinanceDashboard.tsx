@@ -84,7 +84,19 @@ export default function FinanceDashboard({
       }
     } catch (err) {
       console.error("Error restoring operation:", err);
-      setRestoreError("حدث خطأ أثناء استرجاع العملية.");
+      const errMsg = err instanceof Error ? err.message : String(err);
+      let displayError = "حدث خطأ أثناء استرجاع العملية.";
+      try {
+        if (errMsg.startsWith("{")) {
+          const parsed = JSON.parse(errMsg);
+          displayError = `خطأ في الاسترجاع: ${parsed.error || errMsg}`;
+        } else {
+          displayError = `خطأ في الاسترجاع: ${errMsg}`;
+        }
+      } catch (e) {
+        displayError = `خطأ في الاسترجاع: ${errMsg}`;
+      }
+      setRestoreError(displayError);
     } finally {
       setIsRestoringId(null);
     }
@@ -118,7 +130,19 @@ export default function FinanceDashboard({
       }
     } catch (err) {
       console.error("Error deleting operation:", err);
-      setDeleteError("حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.");
+      const errMsg = err instanceof Error ? err.message : String(err);
+      let displayError = "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.";
+      try {
+        if (errMsg.startsWith("{")) {
+          const parsed = JSON.parse(errMsg);
+          displayError = `خطأ في قاعدة البيانات: ${parsed.error || errMsg}`;
+        } else {
+          displayError = `فشل الحذف: ${errMsg}`;
+        }
+      } catch (e) {
+        displayError = `خطأ: ${errMsg}`;
+      }
+      setDeleteError(displayError);
     } finally {
       setIsDeleting(false);
     }
