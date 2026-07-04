@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Operation, ProjectWorkspace } from "./types";
 import OperationForm from "./components/OperationForm";
 import FinanceDashboard from "./components/FinanceDashboard";
-import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut, Bug } from "lucide-react";
+import MonthlyTimeline from "./components/MonthlyTimeline";
+import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut, Bug, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "./components/Header";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -61,7 +62,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "settings" | "debug">("dashboard");
+  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "timeline" | "settings" | "debug">("dashboard");
   const [operations, setOperations] = useState<Operation[]>([]);
   const [deletedOperations, setDeletedOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -471,7 +472,7 @@ function MainApp() {
         userId: user.id,
         createdAt: serverTimestamp(),
         // Keep a string date for exact local time if needed by the app
-        date: new Date().toISOString()
+        date: payload.date || new Date().toISOString()
       };
       
       const opsRef = collection(db, "projects", activeProject.id, "operations");
@@ -619,7 +620,7 @@ function MainApp() {
       <Header currentTab={activeTab} onNavigate={setActiveTab} onLogout={() => setShowLogoutConfirm(true)} />
 
       {/* Main Container Workspace */}
-      <main className="px-4 lg:px-8 py-8 max-w-5xl mx-auto">
+      <main className="px-4 lg:px-8 py-8 max-w-5xl lg:max-w-7xl mx-auto">
         <div className="relative font-sans">
           {activeTab === "create" && (
             <OperationForm 
@@ -636,6 +637,12 @@ function MainApp() {
               onNavigateToNew={() => setActiveTab("create")}
               onDeleteOperation={handleDeleteOperation}
               onRestoreOperation={handleRestoreOperation}
+            />
+          )}
+
+          {activeTab === "timeline" && (
+            <MonthlyTimeline 
+              operations={operations}
             />
           )}
 
@@ -704,9 +711,9 @@ function MainApp() {
         )}
       </AnimatePresence>
 
-      {/* Pristine Floating Bottom Navigation Bar with 3 actions */}
+      {/* Pristine Floating Bottom Navigation Bar with 5 actions */}
       <nav 
-        className="fixed bottom-5 left-1/2 -translate-x-1/2 max-w-sm w-[94%] z-40 flex justify-between items-center p-1.5 bg-neutral-950/95 text-white shadow-xl rounded-2xl border border-white/15 backdrop-blur-md"
+        className="fixed bottom-5 left-1/2 -translate-x-1/2 max-w-md w-[94%] z-40 flex justify-between items-center p-1.5 bg-neutral-950/95 text-white shadow-xl rounded-2xl border border-white/15 backdrop-blur-md lg:hidden"
         id="navbar-operations-with-team"
       >
         <button
@@ -730,7 +737,19 @@ function MainApp() {
           }`}
         >
           <BarChart3 className="w-4 h-4 shrink-0" />
-          <span>لوحة النتائج</span>
+          <span>اللوحة</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("timeline")}
+          className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2.5 rounded-xl transition-all cursor-pointer text-[10px] sm:text-xs font-bold leading-none ${
+            activeTab === "timeline"
+              ? "bg-white text-neutral-950 shadow-md font-black"
+              : "text-neutral-400 hover:text-white"
+          }`}
+        >
+          <Calendar className="w-4 h-4 shrink-0" />
+          <span>الخط الزمني</span>
         </button>
 
         <button

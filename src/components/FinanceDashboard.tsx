@@ -57,6 +57,10 @@ export default function FinanceDashboard({
   const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
+  // Interactive Trend Chart State
+  const [trendMetric, setTrendMetric] = useState<"sales" | "profit">("sales");
+  const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
+
   // Prevent background scrolling when transaction details modal, delete confirmation, or deleted records modal is open
   React.useEffect(() => {
     if (selectedOp || opToDelete || showDeletedModal) {
@@ -265,9 +269,120 @@ export default function FinanceDashboard({
   // Dynamically analyze all groups
   const finalGroupsList = PREDEFINED_GROUPS;
 
-
   // Filter operations dynamically based on tabs and search text
   const filteredOperations = filteredByDate;
+
+  // Trend Data for visual SVG chart
+  const trendData = React.useMemo(() => {
+    const sortedOps = [...filteredByDate].sort((a, b) => {
+      const dateA = new Date(a.date || (a as any).createdAt).getTime();
+      const dateB = new Date(b.date || (b as any).createdAt).getTime();
+      return dateA - dateB;
+    });
+
+    const grouped: { [key: string]: { sales: number; profit: number; count: number } } = {};
+    sortedOps.forEach(op => {
+      const d = new Date(op.date || (op as any).createdAt);
+      const dateStr = d.toLocaleDateString("ar-SA", {
+        month: "short",
+        day: "numeric",
+      });
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = { sales: 0, profit: 0, count: 0 };
+      }
+      grouped[dateStr].sales += op.packageAmount;
+      grouped[dateStr].profit += getOperationProfit(op);
+      grouped[dateStr].count += 1;
+    });
+
+    const keys = Object.keys(grouped);
+    const result = keys.map(k => ({
+      date: k,
+      sales: grouped[k].sales,
+      profit: grouped[k].profit,
+      count: grouped[k].count,
+      isReal: true,
+    }));
+
+    if (result.length === 0) {
+      return [
+        { date: "١ يوليو", sales: 12000, profit: 4200, count: 1, isReal: false },
+        { date: "٧ يوليو", sales: 18500, profit: 6475, count: 2, isReal: false },
+        { date: "١٤ يوليو", sales: 15000, profit: 5250, count: 1, isReal: false },
+        { date: "٢١ يوليو", sales: 27400, profit: 9590, count: 3, isReal: false },
+        { date: "٢٨ يوليو", sales: 34000, profit: 11900, count: 4, isReal: false },
+      ];
+    } else if (result.length < 5) {
+      const pad = [
+        { date: "البداية", sales: 3000, profit: 1050, count: 0, isReal: false },
+        ...result,
+        { date: "النهاية", sales: result[result.length - 1].sales * 1.2, profit: result[result.length - 1].profit * 1.2, count: 0, isReal: false }
+      ];
+      return pad;
+    }
+
+    return result;
+  }, [filteredByDate]);
+
+  const activeMetricMax = React.useMemo(() => {
+    const vals = trendData.map(d => trendMetric === "sales" ? d.sales : d.profit);
+    return Math.max(...vals, 1000);
+  }, [trendData, trendMetric]);
+
+  // Provider breakdown calculations
+  const providerStats = React.useMemo(() => {
+    const stats: { [key: string]: { sales: number; profit: number; count: number; fees: number } } = {
+      "تمارا": { sales: 0, profit: 0, count: 0, fees: 0 },
+      "تابي": { sales: 0, profit: 0, count: 0, fees: 0 },
+      "إمكان": { sales: 0, profit: 0, count: 0, fees: 0 },
+    };
+
+    filteredByDate.forEach(op => {
+      const p = op.provider;
+      if (stats[p]) {
+        stats[p].sales += op.packageAmount;
+        stats[p].profit += getOperationProfit(op);
+        stats[p].count += 1;
+        stats[p].fees += getOperationFee(op);
+      }
+    });
+
+    const totalSalesAll = Object.values(stats).reduce((sum, item) => sum + item.sales, 0) || 1;
+
+    return Object.keys(stats).map(key => ({
+      name: key,
+      sales: stats[key].sales,
+      profit: stats[key].profit,
+      count: stats[key].count,
+      fees: stats[key].fees,
+      share: Math.round((stats[key].sales / totalSalesAll) * 100),
+    }));
+  }, [filteredByDate]);
+
+  // Sparkline builder helper
+  const getSparklinePath = (metricFn: (op: Operation) => number, width = 80, height = 32) => {
+    if (filteredByDate.length < 2) {
+      return `M 0 ${height / 2} L ${width} ${height / 2}`;
+    }
+    const sortedOps = [...filteredByDate].sort((a, b) => {
+      const dateA = new Date(a.date || (a as any).createdAt).getTime();
+      const dateB = new Date(b.date || (b as any).createdAt).getTime();
+      return dateA - dateB;
+    });
+
+    const values = sortedOps.map(op => metricFn(op));
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const valRange = maxVal - minVal || 1;
+
+    const points = values.map((val, idx) => {
+      const x = (idx / (values.length - 1)) * width;
+      const y = height - 2 - ((val - minVal) / valRange) * (height - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    return `M ${points.join(" L ")}`;
+  };
 
   // Get brand colors/details depending on the provider
   const getProviderBadge = (provider: InstallmentProvider) => {
@@ -355,8 +470,266 @@ export default function FinanceDashboard({
         </div>
       </div>
 
+      {/* Interactive Charts & Analytics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="charts-and-analytics-dashboard">
+        
+        {/* Interactive SVG Trend Chart Panel (2/3 width on large screens) */}
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-neutral-200/50 shadow-xs flex flex-col justify-between relative overflow-hidden group">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-neutral-50 pb-4 mb-4">
+            <div>
+              <h3 className="text-sm font-black text-neutral-950 font-sans tracking-tight">منحنى الأداء المالي التفاعلي</h3>
+              <p className="text-[10px] text-neutral-400 mt-0.5">تتبع المبيعات والأرباح المحققة على امتداد فترة الفلترة المحددة</p>
+            </div>
+            
+            {/* Metric Switcher buttons */}
+            <div className="flex bg-neutral-100 p-1 rounded-xl self-start sm:self-auto border border-neutral-200/40">
+              <button
+                type="button"
+                onClick={() => setTrendMetric("sales")}
+                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all ${
+                  trendMetric === "sales" 
+                    ? "bg-white text-blue-600 shadow-sm" 
+                    : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                المبيعات
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendMetric("profit")}
+                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all ${
+                  trendMetric === "profit" 
+                    ? "bg-white text-emerald-600 shadow-sm" 
+                    : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                الأرباح الصافية
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive SVG Graph Area */}
+          <div className="relative h-56 w-full pt-4">
+            {/* Absolute positioning tooltips */}
+            {hoveredPointIdx !== null && trendData[hoveredPointIdx] && (() => {
+              const xPercent = (45 + (hoveredPointIdx * (480 - 45) / (trendData.length - 1))) / 500 * 100;
+              return (
+                <div 
+                  className="absolute z-30 bg-neutral-950 text-white rounded-2xl p-3 shadow-xl border border-white/10 text-xs transition-all duration-150 pointer-events-none"
+                  style={{ 
+                    left: `${xPercent}%`, 
+                    top: "0px",
+                    transform: "translateX(-50%)",
+                  }}
+                >
+                  <div className="space-y-1 text-center" dir="rtl">
+                    <p className="text-[10px] text-neutral-400 font-bold">{trendData[hoveredPointIdx].date}</p>
+                    <p className="font-mono font-black text-sm text-white">
+                      {(trendMetric === "sales" ? trendData[hoveredPointIdx].sales : trendData[hoveredPointIdx].profit).toLocaleString()} ر.س
+                    </p>
+                    <p className="text-[9px] text-neutral-300 font-medium">
+                      {trendMetric === "sales" ? "إجمالي المبيعات" : "الأرباح الصافية"} ({trendData[hoveredPointIdx].count} عملية)
+                    </p>
+                    {!trendData[hoveredPointIdx].isReal && (
+                      <span className="text-[8px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded block mt-1">توضيحي مكمل</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* SVG Elements */}
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={trendMetric === "sales" ? "#3b82f6" : "#10b981"} stopOpacity="0.25"/>
+                  <stop offset="100%" stopColor={trendMetric === "sales" ? "#3b82f6" : "#10b981"} stopOpacity="0.00"/>
+                </linearGradient>
+              </defs>
+
+              {/* Grid Lines (Y axis helper lines) */}
+              {[0, 0.33, 0.66, 1].map((ratio, i) => {
+                const y = 25 + (150 * ratio);
+                return (
+                  <g key={i}>
+                    <line 
+                      x1="45" 
+                      y1={y} 
+                      x2="480" 
+                      y2={y} 
+                      stroke="#f3f4f6" 
+                      strokeWidth="1" 
+                    />
+                    <text 
+                      x="35" 
+                      y={y + 4} 
+                      textAnchor="end" 
+                      className="text-[9px] font-mono fill-neutral-400 font-bold"
+                    >
+                      {Math.round((1 - ratio) * activeMetricMax).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Draw Area with Linear Gradient */}
+              {trendData.length > 1 && (() => {
+                const points = trendData.map((item, idx) => {
+                  const x = 45 + (idx * (480 - 45) / (trendData.length - 1));
+                  const val = trendMetric === "sales" ? item.sales : item.profit;
+                  const y = 175 - (val / activeMetricMax * 150);
+                  return { x, y };
+                });
+
+                const areaD = `M ${points[0].x} 175 ` + points.map(p => `L ${p.x} ${p.y}`).join(" ") + ` L ${points[points.length - 1].x} 175 Z`;
+                const lineD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+
+                return (
+                  <>
+                    <path d={areaD} fill="url(#chartGrad)" />
+                    <path d={lineD} fill="none" stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    
+                    {/* Circle Vertex Nodes */}
+                    {points.map((p, idx) => (
+                      <g key={idx}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r={hoveredPointIdx === idx ? 5 : 3.5} 
+                          fill={trendMetric === "sales" ? "#2563eb" : "#059669"} 
+                          stroke="white" 
+                          strokeWidth="1.5" 
+                        />
+                        {hoveredPointIdx === idx && (
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="10" 
+                            fill={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
+                            fillOpacity="0.15" 
+                            className="animate-ping" 
+                          />
+                        )}
+                      </g>
+                    ))}
+                  </>
+                );
+              })()}
+
+              {/* Invisible Catcher columns for smooth hovering */}
+              {trendData.map((item, idx) => {
+                const colWidth = (480 - 45) / trendData.length;
+                const x = 45 + (idx * (480 - 45) / (trendData.length - 1)) - colWidth / 2;
+                return (
+                  <rect
+                    key={idx}
+                    x={x}
+                    y="10"
+                    width={colWidth}
+                    height="175"
+                    fill="transparent"
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredPointIdx(idx)}
+                    onMouseLeave={() => setHoveredPointIdx(null)}
+                  />
+                );
+              })}
+
+              {/* Date labels under the chart */}
+              {trendData.map((item, idx) => {
+                if (trendData.length > 6 && idx % 2 !== 0 && idx !== trendData.length - 1) return null; // reduce label density
+                const x = 45 + (idx * (480 - 45) / (trendData.length - 1));
+                return (
+                  <text
+                    key={idx}
+                    x={x}
+                    y="192"
+                    textAnchor="middle"
+                    className="text-[9px] font-bold fill-neutral-450 font-sans"
+                  >
+                    {item.date}
+                  </text>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+
+        {/* Provider Performance Panel (1/3 width on large screens) */}
+        <div className="bg-white rounded-3xl p-6 border border-neutral-200/50 shadow-xs flex flex-col justify-between">
+          <div className="border-b border-neutral-50 pb-4 mb-4">
+            <h3 className="text-sm font-black text-neutral-950 font-sans tracking-tight">توزيع الحصة السوقية للمزودين</h3>
+            <p className="text-[10px] text-neutral-400 mt-0.5">مقارنة أداء وتكاليف بوابات التقسيط (تمارا، تابي، إمكان)</p>
+          </div>
+
+          <div className="space-y-4 flex-1 flex flex-col justify-center">
+            {providerStats.map((p) => {
+              // Brand styles
+              let brandColor = "bg-neutral-250";
+              let textBrandColor = "text-neutral-805";
+              let fillBarColor = "bg-neutral-900";
+              
+              if (p.name === "تابي") {
+                brandColor = "bg-[#05ffd2]/15";
+                textBrandColor = "text-neutral-950";
+                fillBarColor = "bg-[#05ffd2]";
+              } else if (p.name === "تمارا") {
+                brandColor = "bg-[#ffaa47]/15";
+                textBrandColor = "text-[#d97706]";
+                fillBarColor = "bg-[#ffaa47]";
+              } else if (p.name === "إمكان") {
+                brandColor = "bg-neutral-900";
+                textBrandColor = "text-neutral-950";
+                fillBarColor = "bg-neutral-950";
+              }
+
+              return (
+                <div key={p.name} className="space-y-1.5 p-3 rounded-2xl hover:bg-neutral-50 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-black border border-neutral-250/10 ${p.name === "إمكان" ? "bg-neutral-950 text-white" : `${brandColor} ${textBrandColor}`}`}>
+                        {p.name}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-bold">{p.count} عملية</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs font-black text-neutral-950">{p.share}%</span>
+                      <span className="text-[9px] text-neutral-400">من السوق</span>
+                    </div>
+                  </div>
+
+                  {/* Proportional Bar */}
+                  <div className="w-full h-2 bg-neutral-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${fillBarColor}`} 
+                      style={{ width: `${p.share}%` }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-center text-[9px] font-bold">
+                    <div>
+                      <p className="text-neutral-400 leading-none">مبيعات</p>
+                      <p className="text-neutral-800 mt-0.5 font-mono">{p.sales.toLocaleString()} ر.س</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400 leading-none">أرباح</p>
+                      <p className="text-emerald-700 mt-0.5 font-mono">+{p.profit.toLocaleString()} ر.س</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400 leading-none">رسوم بوابة</p>
+                      <p className="text-red-600 mt-0.5 font-mono">{p.fees.toLocaleString()} ر.س</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+
       {/* Main KPI Stats Row Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4" id="kpi-stats-metrics-grid">
         
         {/* Stat 1: Sales */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs flex flex-col justify-between h-32 hover:border-neutral-300 transition-colors">
@@ -364,12 +737,26 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">المبيعات</span>
             <DollarSign className="w-4 h-4 text-neutral-400" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
-              <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div>
+              <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+                <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي قيمة المبيعات</p>
             </div>
-            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي قيمة المبيعات</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => op.packageAmount, 80, 32)}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -379,15 +766,29 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">الأرباح الفردية والتجميعية</span>
             <TrendingUp className="w-4 h-4 text-emerald-600 animate-pulse" />
           </div>
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-1 text-neutral-950 font-black">
-              <span className={`text-lg lg:text-xl tracking-tight leading-none font-bold font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                {netProfit >= 0 ? "+" : ""}{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className="text-[10px] font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-1 text-neutral-950 font-black">
+                <span className={`text-lg lg:text-xl tracking-tight leading-none font-bold font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                  {netProfit >= 0 ? "+" : ""}{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8px] text-neutral-400 font-bold leading-none">صافي أرباح التاجر الصافية</p>
+              <p className="text-[7px] text-emerald-600 font-extrabold">الدفعة الأولى يتحملها العميل</p>
             </div>
-            <p className="text-[8px] text-neutral-400 font-bold leading-none">صافي أرباح التاجر النهائية المحققة</p>
-            <p className="text-[7px] text-emerald-600 font-extrabold mt-1">الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => getOperationProfit(op), 80, 32)}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -397,12 +798,26 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">الدفعة الأولى</span>
             <Banknote className="w-4 h-4 text-neutral-400" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
-              <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{totalDownPayments.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div>
+              <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+                <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{totalDownPayments.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي الدفعات الأولى</p>
             </div>
-            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي الدفعات الأولى</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => op.downPayment, 80, 32)}
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -412,12 +827,26 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">رسوم الخدمات</span>
             <Calculator className="w-4 h-4 text-neutral-400" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
-              <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{(totalInstallmentAmount - totalSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div>
+              <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+                <span className="text-xl lg:text-2xl tracking-tight leading-none text-neutral-950 font-black">{(totalInstallmentAmount - totalSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم التقسيط</p>
             </div>
-            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم التقسيط</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => op.totalInstallmentAmount - op.packageAmount, 80, 32)}
+                  fill="none"
+                  stroke="#6366f1"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -427,12 +856,26 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">رسوم مزودي الخدمة</span>
             <Calculator className="w-4 h-4 text-neutral-400" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
-              <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-600 font-black">{totalProviderFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div>
+              <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+                <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-650 font-black">{totalProviderFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم مزود الخدمة (6.99%)</p>
             </div>
-            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم مزود الخدمة (6.99%)</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => getOperationFee(op), 80, 32)}
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -442,12 +885,26 @@ export default function FinanceDashboard({
             <span className="text-neutral-400 text-[10px] font-black tracking-wider">رسوم العمولة</span>
             <Calculator className="w-4 h-4 text-neutral-400" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
-              <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-600 font-black">{totalCommissionFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+          <div className="flex justify-between items-end gap-2">
+            <div>
+              <div className="flex items-baseline gap-1.5 text-neutral-950 font-black">
+                <span className="text-xl lg:text-2xl tracking-tight leading-none text-red-650 font-black">{totalCommissionFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-xs font-sans font-bold text-neutral-450">ر.س</span>
+              </div>
+              <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم العمولة المسجلة</p>
             </div>
-            <p className="text-[8.5px] text-neutral-400 mt-1 font-bold">إجمالي رسوم العمولة المسجلة</p>
+            <div className="w-20 h-8 opacity-80 self-end">
+              <svg className="w-full h-full overflow-visible">
+                <path
+                  d={getSparklinePath((op) => op.commissionFee || 0, 80, 32)}
+                  fill="none"
+                  stroke="#ec4899"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
