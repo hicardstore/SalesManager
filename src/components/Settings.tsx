@@ -468,7 +468,7 @@ export function Settings({
                         )}
                       </div>
                       <span className="text-[10px] text-neutral-400 font-bold mt-1 leading-none">
-                        آخر نشاط: {device.lastActive ? new Date(device.lastActive).toLocaleString('ar-SA', { hour12: true }) : "نشط الآن"}
+                        آخر نشاط: {device.lastActive ? new Date(device.lastActive).toLocaleString('ar-SA-u-nu-latn', { hour12: true }) : "نشط الآن"}
                       </span>
                     </div>
                   </div>

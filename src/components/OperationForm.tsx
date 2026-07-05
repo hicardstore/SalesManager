@@ -145,7 +145,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
     setIsSubmitting(true);
 
     const groupLabel = selectedGroupId === "custom"
-      ? `مخصصة (${packageAmount.toLocaleString()} ر.س)`
+      ? `مخصصة (${packageAmount.toLocaleString("en-US")} ر.س)`
       : (selectedGroup ? selectedGroup.label : "مجموعة غير معروفة");
 
     const payload = {
@@ -428,10 +428,10 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                       صافي الكاش للعميل
                     </p>
                     <p className={`text-base font-black tracking-tight ${isSelected ? "text-white" : "text-neutral-950"}`}>
-                      {g.packageAmount.toLocaleString()} ر.س
+                      {g.packageAmount.toLocaleString("en-US")} ر.س
                     </p>
                     <p className={`text-[9.5px] leading-tight font-bold ${isSelected ? "text-neutral-350" : "text-neutral-400"}`}>
-                      الإجمالي: {g.totalInstallmentAmount.toLocaleString()} ر.س
+                      الإجمالي: {g.totalInstallmentAmount.toLocaleString("en-US")} ر.س
                     </p>
                   </div>
 
@@ -833,42 +833,42 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">إجمالي تمويل العميل (بالأقساط)</p>
                   <p className="text-sm font-black text-neutral-950 font-mono mt-0.5">
-                    {totalInstallmentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {totalInstallmentAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">صافي تمويل العميل (سعر الكاش)</p>
                   <p className="text-sm font-black text-neutral-950 font-mono mt-0.5">
-                    {packageAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {packageAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">الدفعة المخصومة من العميل</p>
                   <p className="text-sm font-black text-neutral-700 font-mono mt-0.5">
-                    {parsedDownPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {parsedDownPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">الصافي للعميل بعد خصم الدفعة الأولى</p>
                   <p className="text-sm font-black text-amber-600 font-mono mt-0.5">
-                    {netTransferToClient.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {netTransferToClient.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">رسوم بوابة التقسيط (6.99%)</p>
                   <p className="text-sm font-black text-red-650 font-mono mt-0.5">
-                    {providerFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {providerFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
                   <p className="text-[9.5px] text-neutral-400 font-bold">رسوم عمولة الوساطة المسجلة</p>
                   <p className="text-sm font-black text-red-650 font-mono mt-0.5">
-                    {parsedCommissionFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {parsedCommissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 
@@ -879,7 +879,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                     <p className="text-[10.5px] font-black">صافي أرباح التاجر النهائية المحققة</p>
                   </div>
                   <p className="text-xl font-black text-emerald-700 font-mono">
-                    {netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                    {netProfit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                   <p className="text-[8.5px] text-neutral-450 font-medium">
                     * الدفعة الأولى يدفعها العميل مباشرة ولا تعتبر من خصوم أرباحك الصافية.
