@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Operation, ProjectWorkspace } from "./types";
 import OperationForm from "./components/OperationForm";
 import FinanceDashboard from "./components/FinanceDashboard";
@@ -64,8 +64,53 @@ function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "profits" | "settings">("dashboard");
   const [dashboardSubTab, setDashboardSubTab] = useState<"overview" | "timeline">("overview");
-  const [operations, setOperations] = useState<Operation[]>([]);
-  const [deletedOperations, setDeletedOperations] = useState<Operation[]>([]);
+
+  // Load initial cached user synchronously to fetch relevant project and operations with zero lag
+  const cachedUser = useMemo(() => {
+    try {
+      const cached = localStorage.getItem("last_logged_in_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(() => {
+    if (cachedUser) {
+      try {
+        const cachedProj = localStorage.getItem(`cached_project_${cachedUser.id}`);
+        return cachedProj ? JSON.parse(cachedProj) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [operations, setOperations] = useState<Operation[]>(() => {
+    if (cachedUser) {
+      try {
+        const cachedOps = localStorage.getItem(`cached_operations_${cachedUser.id}`);
+        return cachedOps ? JSON.parse(cachedOps) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [deletedOperations, setDeletedOperations] = useState<Operation[]>(() => {
+    if (cachedUser) {
+      try {
+        const cachedDelOps = localStorage.getItem(`cached_deleted_operations_${cachedUser.id}`);
+        return cachedDelOps ? JSON.parse(cachedDelOps) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -106,7 +151,6 @@ function MainApp() {
   }, [user]);
   
   // Collaborative workspace settings persistence
-  const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
@@ -622,7 +666,7 @@ function MainApp() {
 
   const isRealCloudUser = user && !user.id.startsWith("local_") && user.id !== "offline_guest_user_id";
 
-  if (authLoading || (isRealCloudUser && isLoadingProject && !activeProject)) {
+  if ((authLoading && !user) || (isRealCloudUser && isLoadingProject && !activeProject)) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center space-y-4">
         <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-900 animate-spin rounded-full"></div>

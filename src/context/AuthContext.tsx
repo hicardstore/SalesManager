@@ -26,7 +26,14 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem("last_logged_in_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,6 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: result.user.displayName || (result.user.email ? result.user.email.split("@")[0] : "مستخدم")
         };
         setUser(userInfo);
+        try {
+          localStorage.setItem("last_logged_in_user", JSON.stringify(userInfo));
+        } catch (e) {}
       }
     }).catch((error) => {
       console.error("Redirect login error:", error);
@@ -53,10 +63,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "مستخدم")
         };
         setUser(userInfo);
+        try {
+          localStorage.setItem("last_logged_in_user", JSON.stringify(userInfo));
+        } catch (e) {}
         setLoading(false);
       },
       () => {
         setUser(null);
+        try {
+          localStorage.removeItem("last_logged_in_user");
+        } catch (e) {}
         setLoading(false);
       }
     );
@@ -205,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     localStorage.removeItem("current_local_user");
+    localStorage.removeItem("last_logged_in_user");
     try {
       await signOut(auth);
     } catch (e) {
