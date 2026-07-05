@@ -413,7 +413,7 @@ export default function FinanceDashboard({
     }
   };
 
-  if (isLoading) {
+  if (isLoading && operations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-900 animate-spin rounded-full"></div>

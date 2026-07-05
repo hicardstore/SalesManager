@@ -80,6 +80,30 @@ function MainApp() {
       document.body.style.overflow = "";
     };
   }, [showLogoutConfirm]);
+
+  // Load cached project and operations immediately on user resolution
+  useEffect(() => {
+    if (user) {
+      try {
+        const cachedProj = localStorage.getItem(`cached_project_${user.id}`);
+        if (cachedProj) {
+          setActiveProject(JSON.parse(cachedProj));
+        }
+        
+        const cachedOps = localStorage.getItem(`cached_operations_${user.id}`);
+        if (cachedOps) {
+          setOperations(JSON.parse(cachedOps));
+        }
+
+        const cachedDelOps = localStorage.getItem(`cached_deleted_operations_${user.id}`);
+        if (cachedDelOps) {
+          setDeletedOperations(JSON.parse(cachedDelOps));
+        }
+      } catch (e) {
+        console.error("Failed to load cached data:", e);
+      }
+    }
+  }, [user]);
   
   // Collaborative workspace settings persistence
   const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
@@ -139,11 +163,17 @@ function MainApp() {
           if (!snap.empty) {
             // Pick the first one
             const docSnap = snap.docs[0];
-            setActiveProject({
+            const resolvedProj = {
               id: docSnap.id,
               ...docSnap.data()
-            } as ProjectWorkspace);
+            } as ProjectWorkspace;
+            setActiveProject(resolvedProj);
             setIsLoadingProject(false);
+            try {
+              localStorage.setItem(`cached_project_${user.id}`, JSON.stringify(resolvedProj));
+            } catch (e) {
+              console.error("Failed to cache project:", e);
+            }
           } else {
             // If workspace is missing for any reason (e.g. account re-registration or deleted database document),
             // auto-create it instantly to prevent lockouts and ensure a lightning-fast initial load.
@@ -222,6 +252,11 @@ function MainApp() {
       fetchedOps.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setOperations(fetchedOps);
       setLoading(false);
+      try {
+        localStorage.setItem(`cached_operations_${user.id}`, JSON.stringify(fetchedOps));
+      } catch (e) {
+        console.error("Failed to cache operations:", e);
+      }
     }, (error) => {
       console.error("Firestore operations sync error:", error);
       setLoading(false);
@@ -248,6 +283,11 @@ function MainApp() {
         return timeB - timeA;
       });
       setDeletedOperations(fetchedDeletedOps);
+      try {
+        localStorage.setItem(`cached_deleted_operations_${user.id}`, JSON.stringify(fetchedDeletedOps));
+      } catch (e) {
+        console.error("Failed to cache deleted operations:", e);
+      }
     }, (error) => {
       console.error("Firestore deleted operations sync error:", error);
     });
@@ -582,7 +622,7 @@ function MainApp() {
 
   const isRealCloudUser = user && !user.id.startsWith("local_") && user.id !== "offline_guest_user_id";
 
-  if (authLoading || (isRealCloudUser && isLoadingProject)) {
+  if (authLoading || (isRealCloudUser && isLoadingProject && !activeProject)) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center space-y-4">
         <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-900 animate-spin rounded-full"></div>
@@ -618,7 +658,12 @@ function MainApp() {
   return (
     <div dir="rtl" className="min-h-screen bg-[#fafafa] text-neutral-900 pb-28 font-sans">
       
-      <Header currentTab={activeTab} onNavigate={setActiveTab} onLogout={() => setShowLogoutConfirm(true)} />
+      <Header 
+        currentTab={activeTab} 
+        onNavigate={setActiveTab} 
+        onLogout={() => setShowLogoutConfirm(true)} 
+        isSyncing={isLoadingProject || loading}
+      />
 
       {/* Main Container Workspace */}
       <main className="px-4 lg:px-8 py-8 max-w-5xl lg:max-w-7xl mx-auto">

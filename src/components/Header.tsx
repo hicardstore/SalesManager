@@ -1,7 +1,17 @@
 import React, { useState } from "react";
 import { Menu, Settings, FilePlus, BarChart3, X, LogOut, Users, Bug, Calendar, Coins } from "lucide-react";
 
-export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "create" | "dashboard" | "profits" | "settings"; onNavigate: (tab: "create" | "dashboard" | "profits" | "settings") => void; onLogout: () => void }) {
+export function Header({ 
+  currentTab, 
+  onNavigate, 
+  onLogout,
+  isSyncing = false
+}: { 
+  currentTab: "create" | "dashboard" | "profits" | "settings"; 
+  onNavigate: (tab: "create" | "dashboard" | "profits" | "settings") => void; 
+  onLogout: () => void;
+  isSyncing?: boolean;
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -98,7 +108,17 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
 
       {/* Corporate branding & instant status marker */}
       <div className="flex items-center gap-3">
-        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
+        {isSyncing ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-amber-600 hidden sm:inline animate-pulse">جاري المزامنة...</span>
+            <div className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse"></div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-emerald-600 hidden sm:inline">مُتصل ومُزامن</span>
+            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+          </div>
+        )}
         <div className="flex flex-col items-end border-r border-neutral-100 pr-3">
           <span className="text-[9px] font-black tracking-widest text-neutral-450 uppercase leading-none">بوابة العمليات</span>
           <span className="text-xs font-black text-neutral-950 mt-1">SalesManager</span>
