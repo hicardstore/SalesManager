@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Menu, Settings, FilePlus, BarChart3, X, LogOut, Users, Bug, Calendar } from "lucide-react";
+import { Menu, Settings, FilePlus, BarChart3, X, LogOut, Users, Bug, Calendar, Coins } from "lucide-react";
 
-export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "create" | "dashboard" | "timeline" | "settings" | "debug"; onNavigate: (tab: "create" | "dashboard" | "timeline" | "settings" | "debug") => void; onLogout: () => void }) {
+export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "create" | "dashboard" | "profits" | "settings"; onNavigate: (tab: "create" | "dashboard" | "profits" | "settings") => void; onLogout: () => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -33,13 +33,13 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
             <span>لوحة القيادة</span>
           </button>
           <button
-            onClick={() => onNavigate("timeline")}
+            onClick={() => onNavigate("profits")}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              currentTab === "timeline" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50"
+              currentTab === "profits" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50"
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>الخط الزمني</span>
+            <Coins className="w-3.5 h-3.5" />
+            <span>الأرباح</span>
           </button>
           <button
             onClick={() => onNavigate("settings")}
@@ -49,15 +49,6 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
           >
             <Settings className="w-3.5 h-3.5" />
             <span>الإعدادات</span>
-          </button>
-          <button
-            onClick={() => onNavigate("debug")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              currentTab === "debug" ? "bg-neutral-950 text-white shadow-sm" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50"
-            }`}
-          >
-            <Bug className="w-3.5 h-3.5" />
-            <span>فحص النظام</span>
           </button>
           <button
             onClick={() => onLogout()}
@@ -83,10 +74,10 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
               <BarChart3 className="w-4 h-4" /> لوحة القيادة
             </button>
             <button
-              onClick={() => { onNavigate("timeline"); setIsMenuOpen(false); }}
-              className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'timeline' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
+              onClick={() => { onNavigate("profits"); setIsMenuOpen(false); }}
+              className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'profits' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
             >
-              <Calendar className="w-4 h-4" /> الخط الزمني الشهري
+              <Coins className="w-4 h-4" /> الأرباح
             </button>
             <hr className="my-1.5 border-neutral-100" />
             <button 
@@ -94,12 +85,6 @@ export function Header({ currentTab, onNavigate, onLogout }: { currentTab: "crea
               className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'settings' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
             >
               <Settings className="w-4 h-4" /> الإعدادات
-            </button>
-            <button 
-              onClick={() => { onNavigate("debug"); setIsMenuOpen(false); }}
-              className={`flex w-full items-center gap-2 p-2 hover:bg-neutral-100 rounded-lg text-sm ${currentTab === 'debug' ? 'text-neutral-900 font-bold bg-neutral-50' : 'text-neutral-700'}`}
-            >
-              <Bug className="w-4 h-4" /> فحص النظام
             </button>
             <button 
               onClick={() => { onLogout(); setIsMenuOpen(false); }}

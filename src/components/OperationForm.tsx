@@ -703,7 +703,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
             </span>
           </div>
 
-          <div className="relative">
+          <div className="relative w-full max-w-full">
             <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none text-neutral-400">
               <Calendar className="w-4 h-4" />
             </div>
@@ -712,7 +712,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               required
               value={operationDate}
               onChange={(e) => setOperationDate(e.target.value)}
-              className="w-full text-xs h-11 px-3 pr-10 text-right font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white cursor-pointer"
+              className="w-full max-w-full min-w-0 block appearance-none -webkit-appearance-none box-border text-xs h-11 pl-3 pr-10 text-right font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white cursor-pointer"
             />
           </div>
 

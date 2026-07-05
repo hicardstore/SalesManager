@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2, Laptop, Smartphone } from "lucide-react";
+import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2, Laptop, Smartphone, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { ProjectWorkspace } from "../types";
+import { DebugPage } from "./DebugPage";
 
 export function Settings({ 
   onLogoutReq,
@@ -18,6 +19,7 @@ export function Settings({
   onDeleteDevice?: (id: string) => void;
 }) {
   const { user, updateUserPassword, deleteUserAccount } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<"general" | "diagnostics">("general");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error" | "success">("idle");
@@ -220,7 +222,37 @@ export function Settings({
         <p className="text-sm text-neutral-500 mt-1 font-medium">إدارة تفضيلات حسابك وخيارات النظام</p>
       </div>
 
-      <div className="space-y-5">
+      {/* Sub-tab Selector inside Settings */}
+      <div className="flex gap-1 bg-neutral-150/80 p-1 bg-neutral-100 rounded-2xl w-fit" dir="rtl">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("general")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeSubTab === "general"
+              ? "bg-white text-neutral-950 shadow-xs"
+              : "text-neutral-500 hover:text-neutral-800"
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>إعدادات الحساب</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("diagnostics")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeSubTab === "diagnostics"
+              ? "bg-white text-neutral-950 shadow-xs"
+              : "text-neutral-500 hover:text-neutral-800"
+          }`}
+        >
+          <Bug className="w-3.5 h-3.5" />
+          <span>فحص وتشخيص النظام</span>
+        </button>
+      </div>
+
+      {activeSubTab === "general" ? (
+        <>
+          <div className="space-y-5">
         {sections.map((section, idx) => (
           <div key={idx} className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-2 p-4 bg-neutral-50/50 border-b border-neutral-100">
@@ -483,6 +515,11 @@ export function Settings({
           <span>حذف الحساب بالكامل وبشكل نهائي</span>
         </button>
       </div>
+
+        </>
+      ) : (
+        <DebugPage activeProject={activeProject} />
+      )}
 
       {/* Delete Account Confirmation Modal */}
       <AnimatePresence>

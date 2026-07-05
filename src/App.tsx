@@ -3,13 +3,13 @@ import { Operation, ProjectWorkspace } from "./types";
 import OperationForm from "./components/OperationForm";
 import FinanceDashboard from "./components/FinanceDashboard";
 import MonthlyTimeline from "./components/MonthlyTimeline";
-import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut, Bug, Calendar } from "lucide-react";
+import { PlusCircle, BarChart3, Bell, Landmark, Settings as SettingsIcon, LogOut, Bug, Calendar, Coins } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "./components/Header";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthScreens } from "./components/AuthScreens";
 import { Settings } from "./components/Settings";
-import { DebugPage } from "./components/DebugPage";
+import { ProfitsDashboard } from "./components/ProfitsDashboard";
 import { db, auth } from "./firebase";
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
 
@@ -62,7 +62,8 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "timeline" | "settings" | "debug">("dashboard");
+  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "profits" | "settings">("dashboard");
+  const [dashboardSubTab, setDashboardSubTab] = useState<"overview" | "timeline">("overview");
   const [operations, setOperations] = useState<Operation[]>([]);
   const [deletedOperations, setDeletedOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -630,20 +631,64 @@ function MainApp() {
           )}
           
           {activeTab === "dashboard" && (
-            <FinanceDashboard 
-              operations={operations}
-              deletedOperations={deletedOperations}
-              isLoading={loading}
-              onNavigateToNew={() => setActiveTab("create")}
-              onDeleteOperation={handleDeleteOperation}
-              onRestoreOperation={handleRestoreOperation}
-            />
+            <div className="space-y-6">
+              {/* Premium Sub-tab Switcher */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.01)] gap-4" dir="rtl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-neutral-950 text-white rounded-2xl shadow-sm">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-neutral-900 tracking-tight">بوابة المراقبة والتحليل المالي</h2>
+                    <p className="text-xs text-neutral-500 font-medium mt-0.5">تابع المؤشرات المالية العامة أو تتبع تدفق العمليات على الخط الزمني الشهري</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-1 bg-neutral-50 p-1 rounded-2xl w-full sm:w-auto border border-neutral-100">
+                  <button
+                    onClick={() => setDashboardSubTab("overview")}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      dashboardSubTab === "overview"
+                        ? "bg-white text-neutral-950 shadow-xs"
+                        : "text-neutral-550 hover:text-neutral-900"
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    <span>لوحة القيادة والتحليل</span>
+                  </button>
+                  <button
+                    onClick={() => setDashboardSubTab("timeline")}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      dashboardSubTab === "timeline"
+                        ? "bg-white text-neutral-950 shadow-xs"
+                        : "text-neutral-550 hover:text-neutral-900"
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>الخط الزمني للعمليات</span>
+                  </button>
+                </div>
+              </div>
+
+              {dashboardSubTab === "overview" ? (
+                <FinanceDashboard 
+                  operations={operations}
+                  deletedOperations={deletedOperations}
+                  isLoading={loading}
+                  onNavigateToNew={() => setActiveTab("create")}
+                  onDeleteOperation={handleDeleteOperation}
+                  onRestoreOperation={handleRestoreOperation}
+                />
+              ) : (
+                <MonthlyTimeline 
+                  operations={operations}
+                />
+              )}
+            </div>
           )}
 
-          {activeTab === "timeline" && (
-            <MonthlyTimeline 
-              operations={operations}
-            />
+          {activeTab === "profits" && (
+            <ProfitsDashboard operations={operations} />
           )}
 
           {activeTab === "settings" && (
@@ -653,10 +698,6 @@ function MainApp() {
               devices={devices}
               onDeleteDevice={handleDeleteDevice}
             />
-          )}
-
-          {activeTab === "debug" && (
-            <DebugPage activeProject={activeProject} />
           )}
         </div>
       </main>
@@ -741,15 +782,15 @@ function MainApp() {
         </button>
 
         <button
-          onClick={() => setActiveTab("timeline")}
+          onClick={() => setActiveTab("profits")}
           className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2.5 rounded-xl transition-all cursor-pointer text-[10px] sm:text-xs font-bold leading-none ${
-            activeTab === "timeline"
+            activeTab === "profits"
               ? "bg-white text-neutral-950 shadow-md font-black"
               : "text-neutral-400 hover:text-white"
           }`}
         >
-          <Calendar className="w-4 h-4 shrink-0" />
-          <span>الخط الزمني</span>
+          <Coins className="w-4 h-4 shrink-0" />
+          <span>الأرباح</span>
         </button>
 
         <button
@@ -762,18 +803,6 @@ function MainApp() {
         >
           <SettingsIcon className="w-4 h-4 shrink-0" />
           <span>الإعدادات</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("debug")}
-          className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2.5 rounded-xl transition-all cursor-pointer text-[10px] sm:text-xs font-bold leading-none ${
-            activeTab === "debug"
-              ? "bg-white text-neutral-950 shadow-md font-black"
-              : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          <Bug className="w-4 h-4 shrink-0" />
-          <span>فحص</span>
         </button>
       </nav>
 

@@ -927,7 +927,7 @@ export default function FinanceDashboard({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
             {finalGroupsList.map((g) => {
-              const groupOps = operations.filter(op => op.packageAmount === g.packageAmount);
+              const groupOps = filteredByDate.filter(op => op.packageAmount === g.packageAmount);
               if (groupOps.length === 0) return null;
 
               const totalGroupSales = groupOps.reduce((sum, op) => sum + op.totalInstallmentAmount, 0);
