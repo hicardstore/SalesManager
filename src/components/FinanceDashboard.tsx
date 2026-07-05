@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { Operation, InstallmentProvider, PREDEFINED_GROUPS } from "../types";
+import { 
+  getOperationFee as getOperationFeeCentral, 
+  getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral, 
+  getOperationProfitAfterDownPayment as getOperationProfitAfterDownPaymentCentral 
+} from "../utils/financeMath";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   TrendingUp, 
@@ -24,6 +29,11 @@ import {
   Trash2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+const cleanClientName = (name: string): string => {
+  if (!name) return "";
+  return name.replace(/[0-9]\uFE0F?\u20E3/g, "").replace(/\s+/g, " ").trim();
+};
 
 interface FinanceDashboardProps {
   operations: Operation[];
@@ -182,26 +192,19 @@ export default function FinanceDashboard({
   };
 
   const getOperationFee = (op: Operation) => {
-    if (["إمكان", "تمارا", "تابي"].includes(op.provider)) {
-      return Math.max(0, op.packageAmount - (op.downPayment || 0)) * 0.0699;
-    }
-    return 0;
+    return getOperationFeeCentral(op);
   };
 
   const getOperationProfit = (op: Operation) => {
-    // صافي أرباح التاجر = إجمالي التمويل - صافي التمويل - رسوم مزود الخدمة - رسوم العمولة
-    // الدفعة الأولى يتحملها العميل بالكامل، فلا تخفض أرباح التاجر
-    const grossProfit = op.totalInstallmentAmount - op.packageAmount;
-    const commission = op.commissionFee || 0;
-    return grossProfit - getOperationFee(op) - commission;
+    return getOperationProfitWithDownPaymentCentral(op);
   };
 
   const getOperationProfitWithDownPayment = (op: Operation) => {
-    return getOperationProfit(op);
+    return getOperationProfitWithDownPaymentCentral(op);
   };
 
   const getOperationProfitAfterDownPayment = (op: Operation) => {
-    return getOperationProfit(op);
+    return getOperationProfitAfterDownPaymentCentral(op);
   };
 
   // Date filtering logic
@@ -1637,7 +1640,7 @@ export default function FinanceDashboard({
 
                           <div className="space-y-1">
                             <p className="text-xs font-black text-neutral-900">
-                              اسم العميل: <span className="font-bold text-neutral-700">{op.clientName || "غير محدد"}</span>
+                              اسم العميل: <span className="font-bold text-neutral-700">{cleanClientName(op.clientName) || "غير محدد"}</span>
                             </p>
                             <p className="text-[10.5px] text-neutral-500 font-bold">
                               الفئة: {groupInfo.label} | مبلغ الكاش: {op.packageAmount.toLocaleString()} ر.س

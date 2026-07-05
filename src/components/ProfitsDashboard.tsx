@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { Operation, InstallmentProvider } from "../types";
 import { 
+  getOperationFee as getOperationFeeCentral, 
+  getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral 
+} from "../utils/financeMath";
+import { 
   TrendingUp, 
   Coins, 
   Percent, 
@@ -26,6 +30,11 @@ const ARABIC_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", 
   "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
 ];
+
+const cleanClientName = (name: string): string => {
+  if (!name) return "";
+  return name.replace(/[0-9]\uFE0F?\u20E3/g, "").replace(/\s+/g, " ").trim();
+};
 
 export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
   // Dynamically generate list of months from available operations + current month
@@ -94,16 +103,11 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
   // Helper calculation functions (Matching system rules exactly)
   const getOperationFee = (op: Operation) => {
-    if (["إمكان", "تمارا", "تابي"].includes(op.provider)) {
-      return Math.max(0, op.packageAmount - (op.downPayment || 0)) * 0.0699;
-    }
-    return 0;
+    return getOperationFeeCentral(op);
   };
 
   const getOperationProfit = (op: Operation) => {
-    const grossProfit = op.totalInstallmentAmount - op.packageAmount;
-    const commission = op.commissionFee || 0;
-    return grossProfit - getOperationFee(op) - commission;
+    return getOperationProfitWithDownPaymentCentral(op);
   };
 
   // Filter operations for selected month
@@ -493,7 +497,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
       </div>
 
       {/* Detailed Operations Profits breakdown table */}
-      <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.01)] space-y-4">
+      <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.01)] space-y-5">
         <div className="flex items-center gap-2 border-b border-neutral-50 pb-3">
           <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
           <h3 className="text-sm font-black text-neutral-800">تفاصيل أرباح العمليات الفردية ({monthlyOperations.length})</h3>
@@ -504,49 +508,136 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
             لا توجد عمليات مسجلة في هذا الشهر لاستعراض ربحيتها
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-neutral-100 text-neutral-400 font-black">
-                  <th className="pb-3 pt-1">العميل / التفاصيل</th>
-                  <th className="pb-3 pt-1">مزود الخدمة</th>
-                  <th className="pb-3 pt-1">رأس المال (الباقة)</th>
-                  <th className="pb-3 pt-1">إجمالي التمويل</th>
-                  <th className="pb-3 pt-1">رسوم الخدمة (6.99%)</th>
-                  <th className="pb-3 pt-1">العمولة المدفوعة</th>
-                  <th className="pb-3 pt-1 text-[#10b981]">صافي الربح</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50 font-medium text-neutral-700">
-                {monthlyOperations.map((op) => {
-                  const profit = getOperationProfit(op);
-                  const fee = getOperationFee(op);
+          <div className="space-y-4">
+            {/* Mobile/Tablet Card-based Layout (Highly polished receipts) */}
+            <div className="block lg:hidden space-y-4">
+              {monthlyOperations.map((op) => {
+                const profit = getOperationProfit(op);
+                const fee = getOperationFee(op);
+                const cleanedName = cleanClientName(op.clientName);
 
-                  return (
-                    <tr key={op.id} className="hover:bg-neutral-50/50 transition-colors">
-                      <td className="py-3">
-                        <div className="font-black text-neutral-950">{op.clientName}</div>
-                        <div className="text-[10px] text-neutral-400 mt-0.5">
+                return (
+                  <div key={op.id} className="p-5 rounded-2xl border border-neutral-150 bg-neutral-50/40 space-y-4 relative overflow-hidden">
+                    {/* Top Row */}
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="font-black text-xs text-neutral-900 leading-tight">
+                          {cleanedName || "عملية بيع"}
+                        </div>
+                        <div className="text-[10px] text-neutral-450 font-medium">
                           {new Date(op.date).toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}
                         </div>
-                      </td>
-                      <td className="py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black ${
-                          op.provider === "تمارا" ? "bg-[#ffaa47]/10 text-amber-700" : op.provider === "تابي" ? "bg-[#05ffd2]/10 text-emerald-800" : "bg-neutral-900 text-white"
-                        }`}>
-                          {op.provider}
+                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${
+                        op.provider === "تمارا" 
+                          ? "bg-amber-50 text-amber-700 border-amber-200/50" 
+                          : op.provider === "تابي" 
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200/50" 
+                            : "bg-neutral-900 text-white border-neutral-900"
+                      }`}>
+                        {op.provider}
+                      </span>
+                    </div>
+
+                    <hr className="border-neutral-200/50" />
+
+                    {/* Mid Grid */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                      <div>
+                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">رأس المال (الباقة)</span>
+                        <span className="font-black text-neutral-800">{op.packageAmount.toLocaleString("ar-SA")} ر.س</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">إجمالي التمويل</span>
+                        <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("ar-SA")} ر.س</span>
+                      </div>
+                      {op.downPayment > 0 && (
+                        <div>
+                          <span className="text-[10px] text-amber-600 font-bold block mb-0.5">الدفعة الأولى</span>
+                          <span className="font-black text-amber-600">{op.downPayment.toLocaleString("ar-SA")} ر.س</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">
+                          رسوم الخدمة (6.99%)
                         </span>
-                      </td>
-                      <td className="py-3 font-bold">{op.packageAmount.toLocaleString("ar-SA")} ر.س</td>
-                      <td className="py-3 font-bold">{(op.totalInstallmentAmount || 0).toLocaleString("ar-SA")} ر.س</td>
-                      <td className="py-3 font-bold text-red-500">{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</td>
-                      <td className="py-3 font-bold text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
-                      <td className="py-3 font-black text-[#10b981]">{Math.round(profit).toLocaleString("ar-SA")} ر.س</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <span className="font-black text-red-500">{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">العمولة المدفوعة</span>
+                        <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Highlight */}
+                    <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
+                      <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("ar-SA")} ر.س</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Roomy Spacious Table Layout */}
+            <div className="hidden lg:block overflow-x-auto border border-neutral-100 rounded-2xl">
+              <table className="w-full text-right text-xs table-auto">
+                <thead>
+                  <tr className="bg-neutral-50/60 border-b border-neutral-100 text-neutral-500 font-black">
+                    <th className="py-4 px-4 font-black">العميل / التفاصيل</th>
+                    <th className="py-4 px-4 font-black">مزود الخدمة</th>
+                    <th className="py-4 px-4 font-black">رأس المال (الباقة)</th>
+                    <th className="py-4 px-4 font-black">إجمالي التمويل</th>
+                    <th className="py-4 px-4 font-black">رسوم الخدمة (6.99%)</th>
+                    <th className="py-4 px-4 font-black">العمولة المدفوعة</th>
+                    <th className="py-4 px-4 font-black text-right text-[#10b981]">صافي الربح</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700">
+                  {monthlyOperations.map((op) => {
+                    const profit = getOperationProfit(op);
+                    const fee = getOperationFee(op);
+                    const cleanedName = cleanClientName(op.clientName);
+
+                    return (
+                      <tr key={op.id} className="hover:bg-neutral-50/30 transition-all duration-150">
+                        <td className="py-4 px-4">
+                          <div className="font-black text-neutral-900 text-[13px]">{cleanedName}</div>
+                          <div className="text-[10px] text-neutral-450 mt-0.5 font-bold">
+                            {new Date(op.date).toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black border ${
+                            op.provider === "تمارا" 
+                              ? "bg-amber-50 text-amber-700 border-amber-200/50" 
+                              : op.provider === "تابي" 
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200/50" 
+                                : "bg-neutral-900 text-white border-neutral-900"
+                          }`}>
+                            {op.provider}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("ar-SA")} ر.س</div>
+                          {op.downPayment > 0 && (
+                            <div className="text-[10px] text-amber-600 font-bold mt-0.5">
+                              الدفعة الأولى: {op.downPayment.toLocaleString("ar-SA")} ر.س
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 font-bold text-neutral-800 text-[13px]">{(op.totalInstallmentAmount || 0).toLocaleString("ar-SA")} ر.س</td>
+                        <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">
+                          <div>{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</div>
+                        </td>
+                        <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
+                        <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">{Math.round(profit).toLocaleString("ar-SA")} <span className="text-[10px] font-bold">ر.س</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

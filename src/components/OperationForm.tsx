@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { InstallmentProvider, PREDEFINED_GROUPS, PredefinedGroup } from "../types";
+import { calculateOperationBreakdown } from "../utils/financeMath";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   CreditCard, 
@@ -77,13 +78,23 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
 
   const parsedDownPayment = Math.max(0, parseFloat(downPayment) || 0);
   const parsedCommissionFee = Math.max(0, parseFloat(commissionFee) || 0);
-  const netTransferToClient = Math.max(0, packageAmount - parsedDownPayment);
+  
+  const breakdown = calculateOperationBreakdown({
+    packageAmount,
+    totalInstallmentAmount,
+    downPayment: parsedDownPayment,
+    commissionFee: parsedCommissionFee,
+    provider,
+    durationMonths: 12,
+  });
+
+  const netTransferToClient = breakdown.netTransferToClient;
   const durationMonths = 12;
-  const monthlyInstallment = parseFloat((netTransferToClient / durationMonths).toFixed(2));
+  const monthlyInstallment = breakdown.monthlyInstallment;
   
   // Calculations for the breakdown
-  const providerFee = netTransferToClient * 0.0699;
-  const netProfit = totalInstallmentAmount - packageAmount - providerFee - parsedCommissionFee;
+  const providerFee = breakdown.providerFee;
+  const netProfit = breakdown.profitWithDownPayment;
 
   // Handle group change with downpayment safety clamping
   const handleGroupChange = (id: string) => {
@@ -848,7 +859,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
-                  <p className="text-[9.5px] text-neutral-400 font-bold">رسوم بوابة التقسيط (6.99% من الصافي)</p>
+                  <p className="text-[9.5px] text-neutral-400 font-bold">رسوم بوابة التقسيط (6.99%)</p>
                   <p className="text-sm font-black text-red-650 font-mono mt-0.5">
                     {providerFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>

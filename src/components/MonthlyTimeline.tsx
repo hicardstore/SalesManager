@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Operation } from "../types";
+import { getOperationFee, getOperationProfitWithDownPayment } from "../utils/financeMath";
 
 interface MonthlyTimelineProps {
   operations?: Operation[];
@@ -87,18 +88,8 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
   // Helper functions for real profit computation
-  const getOperationFee = (op: Operation) => {
-    if (["إمكان", "تمارا", "تابي"].includes(op.provider)) {
-      return Math.max(0, op.packageAmount - (op.downPayment || 0)) * 0.0699;
-    }
-    return 0;
-  };
-
-  const getOperationProfit = (op: Operation) => {
-    const grossProfit = op.totalInstallmentAmount - op.packageAmount;
-    const commission = op.commissionFee || 0;
-    return grossProfit - getOperationFee(op) - commission;
-  };
+  const getOperationFeeLocal = (op: Operation) => getOperationFee(op);
+  const getOperationProfit = (op: Operation) => getOperationProfitWithDownPayment(op);
 
   // Group real operations by day if they match the selected month
   const monthlyData = useMemo(() => {
