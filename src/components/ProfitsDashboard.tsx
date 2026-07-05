@@ -58,7 +58,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
     });
 
     // Sort months with newest first
-    return Array.from(monthsSet).sort((a, b) => {
+    const sorted = Array.from(monthsSet).sort((a, b) => {
       const partsA = a.split(" ");
       const partsB = b.split(" ");
       const idxA = ARABIC_MONTHS.indexOf(partsA[0]);
@@ -69,6 +69,8 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
       if (yearA !== yearB) return yearB - yearA;
       return idxB - idxA;
     });
+
+    return ["الكل", ...sorted];
   }, [operations]);
 
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>(() => {
@@ -78,6 +80,9 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
   // Calculate month and year index
   const { targetMonthIdx, targetYear } = useMemo(() => {
+    if (selectedMonthYear === "الكل") {
+      return { targetMonthIdx: -1, targetYear: -1 };
+    }
     const parts = selectedMonthYear.split(" ");
     const monthStr = parts[0];
     const yearStr = parts[1];
@@ -112,12 +117,15 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
   // Filter operations for selected month
   const monthlyOperations = useMemo(() => {
+    if (selectedMonthYear === "الكل") {
+      return operations;
+    }
     return operations.filter(op => {
       const d = new Date(op.date);
       if (isNaN(d.getTime())) return false;
       return d.getMonth() === targetMonthIdx && d.getFullYear() === targetYear;
     });
-  }, [operations, targetMonthIdx, targetYear]);
+  }, [operations, selectedMonthYear, targetMonthIdx, targetYear]);
 
   // Aggregate monthly stats
   const stats = useMemo(() => {
@@ -177,9 +185,47 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
   // Daily profits inside month for SVG visualization
   const dailyProfits = useMemo(() => {
+    if (selectedMonthYear === "الكل") {
+      // Group by month label from availableMonths (excluding "الكل")
+      // To keep newest at the right on the chart, let's reverse the availableMonths (excluding "الكل")
+      const months = [...availableMonths].filter(m => m !== "الكل").reverse();
+      
+      if (months.length === 0) return [];
+      
+      return months.map((m, index) => {
+        const parts = m.split(" ");
+        const mStr = parts[0];
+        const yStr = parts[1];
+        const mIdx = ARABIC_MONTHS.indexOf(mStr);
+        const yr = parseInt(yStr) || 0;
+        
+        let profit = 0;
+        let sales = 0;
+        let orders = 0;
+        
+        operations.forEach(op => {
+          const d = new Date(op.date);
+          if (!isNaN(d.getTime()) && d.getMonth() === mIdx && d.getFullYear() === yr) {
+            profit += getOperationProfit(op);
+            sales += op.packageAmount || 0;
+            orders += 1;
+          }
+        });
+        
+        return {
+          day: index + 1,
+          label: m,
+          profit,
+          sales,
+          orders
+        };
+      });
+    }
+
     const daysInMonth = new Date(targetYear, targetMonthIdx + 1, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => ({
       day: i + 1,
+      label: `${i + 1}`,
       profit: 0,
       sales: 0,
       orders: 0
@@ -195,7 +241,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
     });
 
     return daysArray;
-  }, [monthlyOperations, targetMonthIdx, targetYear]);
+  }, [operations, monthlyOperations, targetMonthIdx, targetYear, selectedMonthYear, availableMonths]);
 
   // SVG dimensions & path builders
   const maxDailyProfit = useMemo(() => {
@@ -403,7 +449,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                   />
 
                   {/* Data Points on Line */}
-                  {dailyProfits.map((d, idx) => {
+                  {dailyProfits.map((d: any, idx) => {
                     if (d.profit === 0) return null;
                     const step = (600 - 40) / (dailyProfits.length - 1);
                     const x = 20 + idx * step;
@@ -421,7 +467,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                           strokeWidth="2.5"
                           className="transition-all duration-150 hover:r-7"
                         />
-                        <title>{`اليوم ${d.day}: ${Math.round(d.profit)} ر.س ربح`}</title>
+                        <title>{selectedMonthYear === "الكل" ? `${d.label}: ${Math.round(d.profit)} ر.س ربح` : `اليوم ${d.day}: ${Math.round(d.profit)} ر.س ربح`}</title>
                       </g>
                     );
                   })}
@@ -437,9 +483,19 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
               {/* Chart Labels */}
               <div className="flex justify-between text-[10px] text-neutral-400 font-bold px-3">
-                <span>١ {ARABIC_MONTHS[targetMonthIdx]}</span>
-                <span>١٥ {ARABIC_MONTHS[targetMonthIdx]}</span>
-                <span>{dailyProfits.length} {ARABIC_MONTHS[targetMonthIdx]}</span>
+                {selectedMonthYear === "الكل" ? (
+                  <>
+                    <span>{dailyProfits[0]?.label || ""}</span>
+                    <span>{dailyProfits[Math.floor(dailyProfits.length / 2)]?.label || ""}</span>
+                    <span>{dailyProfits[dailyProfits.length - 1]?.label || ""}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>١ {ARABIC_MONTHS[targetMonthIdx]}</span>
+                    <span>١٥ {ARABIC_MONTHS[targetMonthIdx]}</span>
+                    <span>{dailyProfits.length} {ARABIC_MONTHS[targetMonthIdx]}</span>
+                  </>
+                )}
               </div>
             </div>
           )}

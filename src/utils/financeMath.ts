@@ -14,13 +14,18 @@ export interface CalculatedOperationBreakdown {
 }
 
 /**
- * Centrally calculates the gateway provider fee (6.99%) with high precision.
+ * Centrally calculates the gateway provider fee (6.99% or custom rate) with high precision.
  */
-export function getOperationFee(op: { packageAmount: number; provider: string }): number {
+export function getOperationFee(
+  op: { packageAmount: number; provider: string },
+  customRates?: { [key: string]: number }
+): number {
   const normalizedProvider = (op.provider || "").trim();
   if (["إمكان", "تمارا", "تابي"].includes(normalizedProvider)) {
-    // Round to 4 decimal places internally to maintain float precision
-    return Number((op.packageAmount * 0.0699).toFixed(4));
+    const rate = customRates && customRates[normalizedProvider] !== undefined
+      ? customRates[normalizedProvider] / 100
+      : 0.0699;
+    return Number((op.packageAmount * rate).toFixed(4));
   }
   return 0;
 }
@@ -30,14 +35,17 @@ export function getOperationFee(op: { packageAmount: number; provider: string })
  * Net Merchant Profit = Total Installment Amount - Package Cost (Cash price) - Provider Fee - Commission Fee.
  * Since the down payment is paid by the client, it does not reduce the merchant's net profit.
  */
-export function getOperationProfitWithDownPayment(op: {
-  totalInstallmentAmount: number;
-  packageAmount: number;
-  provider: string;
-  commissionFee?: number;
-}): number {
+export function getOperationProfitWithDownPayment(
+  op: {
+    totalInstallmentAmount: number;
+    packageAmount: number;
+    provider: string;
+    commissionFee?: number;
+  },
+  customRates?: { [key: string]: number }
+): number {
   const grossProfit = (op.totalInstallmentAmount || 0) - op.packageAmount;
-  const fee = getOperationFee(op);
+  const fee = getOperationFee(op, customRates);
   const commission = op.commissionFee || 0;
   return Number((grossProfit - fee - commission).toFixed(4));
 }
@@ -47,14 +55,17 @@ export function getOperationProfitWithDownPayment(op: {
  * Under standard business rules, since down payment is paid by the customer, the merchant's net profit
  * is NOT reduced by the down payment. Thus, it is identical to getOperationProfitWithDownPayment.
  */
-export function getOperationProfitAfterDownPayment(op: {
-  totalInstallmentAmount: number;
-  packageAmount: number;
-  provider: string;
-  commissionFee?: number;
-  downPayment?: number;
-}): number {
-  return getOperationProfitWithDownPayment(op);
+export function getOperationProfitAfterDownPayment(
+  op: {
+    totalInstallmentAmount: number;
+    packageAmount: number;
+    provider: string;
+    commissionFee?: number;
+    downPayment?: number;
+  },
+  customRates?: { [key: string]: number }
+): number {
+  return getOperationProfitWithDownPayment(op, customRates);
 }
 
 /**
@@ -67,6 +78,7 @@ export function calculateOperationBreakdown(params: {
   commissionFee?: number;
   provider: string;
   durationMonths?: number;
+  customRates?: { [key: string]: number };
 }): CalculatedOperationBreakdown {
   const packageAmount = Math.max(0, params.packageAmount || 0);
   const totalInstallmentAmount = Math.max(0, params.totalInstallmentAmount || 0);
@@ -74,7 +86,7 @@ export function calculateOperationBreakdown(params: {
   const commissionFee = Math.max(0, params.commissionFee || 0);
   const durationMonths = params.durationMonths && params.durationMonths > 0 ? params.durationMonths : 12;
 
-  const providerFee = getOperationFee({ packageAmount, provider: params.provider });
+  const providerFee = getOperationFee({ packageAmount, provider: params.provider }, params.customRates);
   const netTransferToClient = Math.max(0, Number((packageAmount - downPayment).toFixed(4)));
   const monthlyInstallment = Number((netTransferToClient / durationMonths).toFixed(2));
   const grossProfit = Number((totalInstallmentAmount - packageAmount).toFixed(4));
@@ -83,7 +95,7 @@ export function calculateOperationBreakdown(params: {
     packageAmount,
     provider: params.provider,
     commissionFee,
-  });
+  }, params.customRates);
 
   return {
     packageAmount,
@@ -97,4 +109,26 @@ export function calculateOperationBreakdown(params: {
     profitWithDownPayment: Number(profitWithDownPayment.toFixed(2)),
     profitAfterDownPayment: Number(profitWithDownPayment.toFixed(2)),
   };
+}
+
+/**
+ * Centrally formats money values based on the active project's currency and number system preferences.
+ */
+export function formatMoney(val: number, activeProject?: any): string {
+  const currency = activeProject?.currencySymbol || "ر.س";
+  const numSystem = activeProject?.numberSystem || "en";
+  
+  // Format with thousands separator
+  const formattedEn = Number(val).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+  
+  if (numSystem === "ar") {
+    const arabicDigits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+    const formattedAr = formattedEn.replace(/[0-9]/g, (w) => arabicDigits[+w]);
+    return `${formattedAr} ${currency}`;
+  }
+  
+  return `${formattedEn} ${currency}`;
 }

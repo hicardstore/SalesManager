@@ -1,22 +1,25 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2, Laptop, Smartphone, Bug } from "lucide-react";
+import { User, Shield, Bell, Sliders, LogOut, ChevronLeft, Cloud, KeyRound, Check, AlertCircle, X, Trash2, Laptop, Smartphone, Bug, Coins, Download } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { ProjectWorkspace } from "../types";
+import { ProjectWorkspace, Operation } from "../types";
 import { DebugPage } from "./DebugPage";
+import { formatMoney } from "../utils/financeMath";
 
 export function Settings({ 
   onLogoutReq,
   activeProject,
   devices = [],
-  onDeleteDevice
+  onDeleteDevice,
+  operations = []
 }: { 
   onLogoutReq: () => void;
   activeProject: ProjectWorkspace | null;
   devices?: any[];
   onDeleteDevice?: (id: string) => void;
+  operations?: Operation[];
 }) {
   const { user, updateUserPassword, deleteUserAccount } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<"general" | "diagnostics">("general");
@@ -24,6 +27,8 @@ export function Settings({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error" | "success">("idle");
   const [deleteErrorMsg, setDeleteErrorMsg] = useState("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [invitedRole, setInvitedRole] = useState<"محرر" | "عارض">("عارض");
 
   // Prevent background scrolling when password update modal is open
   React.useEffect(() => {
@@ -100,7 +105,7 @@ export function Settings({
         {
           email: emailToAdd,
           name: emailToAdd.split("@")[0],
-          role: "عارض" as const,
+          role: invitedRole,
           status: "نشط" as const
         }
       ];
@@ -179,6 +184,56 @@ export function Settings({
     }
   };
 
+  // Export to CSV
+  const handleExportCSV = () => {
+    if (!operations || operations.length === 0) return;
+    
+    // CSV Header (UTF-8 with BOM for proper Arabic characters)
+    let csvContent = "\uFEFF";
+    csvContent += "المعرف,العميل,التاريخ,الحالة,قيمة الباقة (كاش),إجمالي التقسيط,الدفعة الأولى,المتبقي,مزود الخدمة,القسط الشهري,المدة بالأشهر,الرسوم المسجلة\n";
+    
+    operations.forEach(op => {
+      const row = [
+        op.id,
+        `"${op.clientName?.replace(/"/g, '""') || ""}"`,
+        op.date,
+        op.status,
+        op.packageAmount,
+        op.totalInstallmentAmount,
+        op.downPayment,
+        op.remainingAmount,
+        op.provider,
+        op.monthlyInstallment,
+        op.durationMonths,
+        op.commissionFee || 0
+      ].join(",");
+      csvContent += row + "\n";
+    });
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `سجل_العمليات_المالية_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export to JSON
+  const handleExportJSON = () => {
+    if (!operations || operations.length === 0) return;
+    const jsonString = JSON.stringify(operations, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `نسخة_احتياطية_العمليات_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const sections = [
     {
       title: "تفاصيل الحساب",
@@ -209,8 +264,8 @@ export function Settings({
       title: "الإشعارات والأمان",
       icon: <Bell className="w-4 h-4 text-blue-500" />,
       items: [
-        { label: "إشعارات العمليات", value: "مفعل", action: true },
-        { label: "التحقق بخطوتين", value: "غير مفعل", action: true },
+        { label: "إشعارات العمليات", value: "مفعل", action: false, isToggle: true, checked: true },
+        { label: "التحقق بخطوتين", value: "غير مفعل", action: false, isToggle: true, checked: false },
       ]
     }
   ];
@@ -259,31 +314,45 @@ export function Settings({
               {section.icon}
               <h3 className="font-bold text-neutral-900 text-sm">{section.title}</h3>
             </div>
-            <div className="divide-y divide-neutral-50">
-              {(section.items as any[]).map((item, itemIdx) => (
-                <div 
-                  key={itemIdx} 
-                  onClick={item.onClick}
-                  className={`p-4 flex items-center justify-between transition-colors ${item.action || item.onClick ? 'hover:bg-neutral-50/50 cursor-pointer group' : ''}`}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-neutral-800">{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {item.value && (
-                      <span className={`text-xs font-bold px-2 py-1 rounded-md ${
-                        item.value.includes("نشط") || item.value === "مربوط" 
-                          ? "bg-emerald-50 text-emerald-600" 
-                          : "bg-amber-50 text-amber-600"
-                      }`}>{item.value}</span>
-                    )}
-                    {item.action && (
-                      <ChevronLeft className="w-4 h-4 text-neutral-300 group-hover:text-neutral-900 transition-colors" />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+             <div className="divide-y divide-neutral-50">
+               {(section.items as any[]).map((item, itemIdx) => {
+                 const isToggle = item.isToggle;
+                 return (
+                   <div 
+                     key={itemIdx} 
+                     onClick={item.onClick}
+                     className={`p-4 flex items-center justify-between transition-colors ${item.action || item.onClick ? 'hover:bg-neutral-50/50 cursor-pointer group' : ''}`}
+                   >
+                     <div className="flex flex-col text-right">
+                       <span className="text-sm font-bold text-neutral-800">{item.label}</span>
+                     </div>
+                     <div className="flex items-center gap-3">
+                       {isToggle ? (
+                         <div className="flex items-center gap-2" dir="ltr">
+                           <span className="text-[10px] font-black text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">قريباً</span>
+                           <div className={`w-8 h-4 rounded-full relative p-0.5 transition-colors cursor-not-allowed opacity-60 ${item.checked ? 'bg-neutral-300' : 'bg-neutral-200'}`}>
+                             <div className={`w-3 h-3 bg-white rounded-full shadow-xs transition-transform ${item.checked ? 'translate-x-4' : 'translate-x-0'}`} />
+                           </div>
+                         </div>
+                       ) : (
+                         <>
+                           {item.value && (
+                             <span className={`text-xs font-bold px-2 py-1 rounded-md ${
+                               item.value.includes("نشط") || item.value === "مربوط" 
+                                 ? "bg-emerald-50 text-emerald-600" 
+                                 : "bg-amber-50 text-amber-600"
+                             }`}>{item.value}</span>
+                           )}
+                           {item.action && (
+                             <ChevronLeft className="w-4 h-4 text-neutral-300 group-hover:text-neutral-900 transition-colors" />
+                           )}
+                         </>
+                       )}
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
           </div>
         ))}
 
@@ -378,12 +447,30 @@ export function Settings({
                     const isOwner = email.toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim();
                     const isMe = email.toLowerCase().trim() === (user?.email || "").toLowerCase().trim();
                     const canDelete = !isOwner && (user?.email || "").toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim();
+                    const memberObj = (activeProject.members || []).find(m => m.email.toLowerCase().trim() === email.toLowerCase().trim());
+                    const roleLabel = isOwner ? "مالك" : (memberObj?.role || "عارض");
                     return (
                       <div key={email} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition-colors">
                         <div className="flex flex-col text-right">
-                          <span className="text-xs font-bold text-neutral-800">{email}</span>
-                          <span className="text-[9px] text-neutral-400 font-bold">
-                            {isOwner ? "مالك المشروع" : "عضو مشارك"} {isMe && "(أنت)"}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-neutral-800">{email}</span>
+                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                              roleLabel === "مالك" 
+                                ? "bg-neutral-950 text-white border border-neutral-800" 
+                                : roleLabel === "محرر" 
+                                  ? "bg-blue-50 text-blue-600 border border-blue-100" 
+                                  : "bg-neutral-100 text-neutral-600 border border-neutral-200"
+                            }`}>
+                              {roleLabel}
+                            </span>
+                            {isMe && (
+                              <span className="text-[9px] bg-emerald-50 text-emerald-600 font-extrabold px-1.5 py-0.5 rounded-full border border-emerald-100">
+                                أنت
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-neutral-400 font-bold mt-1">
+                            {isOwner ? "مالك المشروع" : "عضو مشارك في مساحة العمل"}
                           </span>
                         </div>
                         {canDelete && (
@@ -406,7 +493,7 @@ export function Settings({
               {((user?.email || "").toLowerCase().trim() === activeProject.ownerEmail.toLowerCase().trim()) && (
                 <div className="pt-2 space-y-2">
                   <span className="text-xs font-black text-neutral-700 block">إضافة شريك/صديق لمساحة العمل</span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="email"
                       placeholder="بريد صديقك الإلكتروني..."
@@ -415,6 +502,15 @@ export function Settings({
                       disabled={isUpdatingMembers}
                       className="flex-1 px-3.5 py-2.5 bg-neutral-50/50 border border-neutral-200 focus:border-neutral-900 outline-none rounded-xl text-xs font-bold text-neutral-850 placeholder-neutral-400 text-left"
                     />
+                    <select
+                      value={invitedRole}
+                      onChange={(e: any) => setInvitedRole(e.target.value)}
+                      disabled={isUpdatingMembers}
+                      className="px-3 py-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold text-neutral-850 focus:outline-none focus:border-neutral-950"
+                    >
+                      <option value="عارض">عارض (رؤية فقط)</option>
+                      <option value="محرر">محرر (تعديل وتسجيل)</option>
+                    </select>
                     <button
                       onClick={handleAddMember}
                       disabled={isUpdatingMembers || !newMemberEmail}
@@ -493,27 +589,212 @@ export function Settings({
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="pt-4 space-y-3">
-        <button
-          onClick={onLogoutReq}
-          className="w-full bg-neutral-100 text-neutral-800 hover:bg-neutral-200 transition-colors rounded-2xl p-4 flex items-center justify-center gap-2 font-bold text-sm cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>تسجيل الخروج من الحساب</span>
-        </button>
+      {/* Action Cards & Buttons */}
+      <div className="space-y-5">
+        {/* 4. Gateway Rates Customization Card */}
+        {activeProject && (
+          <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
+            <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div className="text-right">
+                <h3 className="font-bold text-neutral-900 text-sm">تفضيلات الرسوم وبوابات الدفع</h3>
+                <p className="text-xs text-neutral-400 font-medium">تخصيص نسب الرسوم لكل بوابة تقسيط مستخدمة لحساب أرباح دقيقة</p>
+              </div>
+            </div>
 
-        <button
-          onClick={() => {
-            setDeleteErrorMsg("");
-            setDeleteStatus("idle");
-            setShowDeleteConfirm(true);
-          }}
-          className="w-full bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors rounded-2xl p-4 flex items-center justify-center gap-2 font-bold text-sm cursor-pointer border border-red-100"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>حذف الحساب بالكامل وبشكل نهائي</span>
-        </button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-right">
+              {["تمارا", "تابي", "إمكان"].map((provider) => {
+                const currentRate = activeProject.customRates?.[provider] !== undefined 
+                  ? activeProject.customRates[provider] 
+                  : 6.99;
+                return (
+                  <div key={provider} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                    <span className="text-xs font-black text-neutral-700">{provider}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-neutral-500">%</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={currentRate}
+                        onChange={async (e) => {
+                          const val = parseFloat(e.target.value);
+                          if (isNaN(val)) return;
+                          
+                          // Save in Firestore
+                          const projectRef = doc(db, "projects", activeProject.id);
+                          const updatedRates = {
+                            ...(activeProject.customRates || {}),
+                            [provider]: val
+                          };
+                          try {
+                            await updateDoc(projectRef, {
+                              customRates: updatedRates
+                            });
+                          } catch (err) {
+                            console.error("Failed to update custom rates:", err);
+                          }
+                        }}
+                        className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 5. Preferences (Number System and Currency) Card */}
+        {activeProject && (
+          <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
+            <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div className="text-right">
+                <h3 className="font-bold text-neutral-900 text-sm">تفضيلات عرض الواجهة والتنسيق</h3>
+                <p className="text-xs text-neutral-400 font-medium">تحديد نظام الأرقام والعملة الافتراضية لعرض البيانات عبر لوحات التحكم</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+              {/* Number system preference */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                <span className="text-xs font-black text-neutral-700">نظام عرض الأرقام</span>
+                <select
+                  value={activeProject.numberSystem || "en"}
+                  onChange={async (e) => {
+                    const projectRef = doc(db, "projects", activeProject.id);
+                    try {
+                      await updateDoc(projectRef, {
+                        numberSystem: e.target.value
+                      });
+                    } catch (err) {
+                      console.error("Failed to update number system:", err);
+                    }
+                  }}
+                  className="w-full bg-white border border-neutral-200 rounded-lg p-2.5 text-xs font-bold text-neutral-850 focus:outline-none focus:border-neutral-950"
+                >
+                  <option value="en">الأرقام الإنجليزية الغربية (12345)</option>
+                  <option value="ar">الأرقام العربية الشرقية (١٢٣٤٥)</option>
+                </select>
+                <span className="text-[10px] text-neutral-400 font-bold mt-1">
+                  معاينة التنسيق الحالي: <span className="text-neutral-700 font-black">{formatMoney(1500.5, activeProject)}</span>
+                </span>
+              </div>
+
+              {/* Currency symbol preference */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                <span className="text-xs font-black text-neutral-700">العملة الافتراضية</span>
+                <select
+                  value={activeProject.currencySymbol || "ر.س"}
+                  onChange={async (e) => {
+                    const projectRef = doc(db, "projects", activeProject.id);
+                    try {
+                      await updateDoc(projectRef, {
+                        currencySymbol: e.target.value
+                      });
+                    } catch (err) {
+                      console.error("Failed to update currency symbol:", err);
+                    }
+                  }}
+                  className="w-full bg-white border border-neutral-200 rounded-lg p-2.5 text-xs font-bold text-neutral-850 focus:outline-none focus:border-neutral-950"
+                >
+                  <option value="ر.س">ريال سعودي (ر.س)</option>
+                  <option value="$">دولار أمريكي ($)</option>
+                  <option value="د.ك">دينار كويتي (د.ك)</option>
+                  <option value="د.إ">درهم إماراتي (د.إ)</option>
+                  <option value="د.ب">دينار بحريني (د.ب)</option>
+                  <option value="ج.م">جنيه مصري (ج.م)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 6. Data Portability & Export Card */}
+        <div className="bg-white rounded-[1.5rem] border border-neutral-100 overflow-hidden shadow-[0px_0px_10px_rgba(0,0,0,0.02)] p-5 space-y-4" dir="rtl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-50">
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <Download className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <h3 className="font-bold text-neutral-900 text-sm">مركز إدارة وتصدير البيانات (النسخ الاحتياطي)</h3>
+              <p className="text-xs text-neutral-400 font-medium">قم بتحميل نسخة كاملة من سجلات عملياتك للحفاظ عليها أو استخدامها في تطبيقات أخرى</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-right">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              disabled={!operations || operations.length === 0}
+              className="flex items-center justify-center gap-2 bg-neutral-50 border border-neutral-200/80 hover:bg-neutral-100/70 transition-colors p-4 rounded-2xl text-xs font-black text-neutral-800 disabled:opacity-50 cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-neutral-500" />
+              <span>تصدير السجل بصيغة جدول Excel (CSV)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              disabled={!operations || operations.length === 0}
+              className="flex items-center justify-center gap-2 bg-neutral-50 border border-neutral-200/80 hover:bg-neutral-100/70 transition-colors p-4 rounded-2xl text-xs font-black text-neutral-850 disabled:opacity-50 cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-neutral-500" />
+              <span>تصدير نسخة احتياطية كاملة (JSON)</span>
+            </button>
+          </div>
+          {!operations || operations.length === 0 ? (
+            <p className="text-[10px] text-amber-600 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-100/50 text-center leading-relaxed">
+              تنبيه: لا تتوفر أي عمليات مسجلة حالياً للتصدير. قم بإضافة عمليات أولاً لتتمكن من تصديرها.
+            </p>
+          ) : (
+            <p className="text-[10px] text-neutral-400 font-bold text-center leading-relaxed">
+              متاح حالياً تصدير عدد ({operations.length}) عملية مسجلة بشكل آمن وفوري.
+            </p>
+          )}
+        </div>
+
+        {/* Regular Action Buttons */}
+        <div className="pt-4 text-right" dir="rtl">
+          <button
+            onClick={onLogoutReq}
+            className="w-full bg-neutral-150 text-neutral-800 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-2xl p-4 flex items-center justify-center gap-2 font-black text-sm cursor-pointer shadow-xs border border-neutral-200/50"
+          >
+            <LogOut className="w-4.5 h-4.5" />
+            <span>تسجيل الخروج من الحساب الحالي</span>
+          </button>
+        </div>
+
+        {/* Danger Zone Block */}
+        <div className="bg-red-50/40 border border-red-200/60 rounded-[1.5rem] p-6 mt-6 space-y-4 text-right" dir="rtl">
+          <div>
+            <h4 className="text-sm font-black text-red-600 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              منطقة الخطر والحذف النهائي
+            </h4>
+            <p className="text-xs text-neutral-500 font-medium mt-1 leading-relaxed">
+              الإجراءات أدناه حساسة للغاية ولها تأثيرات دائمة لا يمكن التراجع عنها. يرجى توخي أقصى درجات الحذر والمسؤولية.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setDeleteErrorMsg("");
+              setDeleteStatus("idle");
+              setDeleteConfirmText("");
+              setShowDeleteConfirm(true);
+            }}
+            className="w-full bg-red-600 hover:bg-red-700 text-white transition-colors rounded-2xl p-4 flex items-center justify-center gap-2 font-black text-sm cursor-pointer shadow-xs"
+          >
+            <Trash2 className="w-4.5 h-4.5" />
+            <span>حذف حساب المستخدم وتصفير السجلات نهائياً</span>
+          </button>
+        </div>
       </div>
 
         </>
@@ -536,13 +817,26 @@ export function Settings({
               </div>
 
               <h3 className="text-lg font-black text-neutral-900 mb-2">تنويه هام قبل حذف حسابك</h3>
-              <p className="text-xs text-neutral-500 font-medium leading-relaxed mb-6">
+              <p className="text-xs text-neutral-500 font-medium leading-relaxed mb-4">
                 هل أنت متأكد من رغبتك في حذف حسابك بالكامل؟ 
                 <br />
                 <span className="text-red-500 font-bold block mt-2 text-xs">
                   تنبيه: سيتم مسح بياناتك السحابية والخروج نهائياً. لا يمكن التراجع عن هذا الإجراء، وسيتعين عليك التسجيل مجدداً لتتمكن من استخدام النظام وسيجري حذف كافة بياناتك.
                 </span>
               </p>
+
+              <div className="mt-4 mb-5 text-right" dir="rtl">
+                <label className="block text-xs font-black text-neutral-600 mb-1.5 text-center">
+                  لتأكيد الحذف النهائي، يرجى كتابة كلمة <span className="text-red-600 font-black">"حذف"</span> أدناه:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="اكتب كلمة حذف لتأكيد الإجراء..."
+                  className="w-full px-3.5 py-2.5 bg-red-50/20 border border-red-200 focus:border-red-500 outline-none rounded-xl text-xs font-bold text-neutral-850 placeholder-neutral-400 text-center"
+                />
+              </div>
 
               {deleteErrorMsg && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 text-right leading-relaxed mb-4 flex items-start gap-2">
@@ -563,6 +857,7 @@ export function Settings({
                 <button
                   type="button"
                   onClick={async () => {
+                    if (deleteConfirmText !== "حذف") return;
                     setDeleteStatus("deleting");
                     setDeleteErrorMsg("");
                     try {
@@ -581,8 +876,8 @@ export function Settings({
                       setDeleteErrorMsg(err?.message || "فشل حذف الحساب. يرجى المحاولة وقت آخر.");
                     }
                   }}
-                  disabled={deleteStatus === "deleting"}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors text-white font-extrabold text-xs py-3.5 rounded-xl cursor-pointer"
+                  disabled={deleteStatus === "deleting" || deleteConfirmText !== "حذف"}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors text-white font-extrabold text-xs py-3.5 rounded-xl cursor-pointer disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed"
                 >
                   {deleteStatus === "deleting" ? "جاري الحذف..." : "تأكيد حذف الحساب"}
                 </button>

@@ -19,6 +19,9 @@ export interface ProjectWorkspace {
   ownerEmail: string;
   members: ProjectMember[];
   memberEmails?: string[];
+  customRates?: Record<string, number>;
+  numberSystem?: string;
+  currencySymbol?: string;
 }
 
 export type OperationStatus = "مكتمل" | "قيد المراجعة";
