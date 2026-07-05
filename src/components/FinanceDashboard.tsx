@@ -338,6 +338,45 @@ export default function FinanceDashboard({
     return Math.max(...vals, 1000);
   }, [trendData, trendMetric]);
 
+  // Bezier curve spline path generator for smooth waves
+  const getBezierPath = (pts: { x: number; y: number }[]) => {
+    if (pts.length === 0) return "";
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    
+    let path = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const curr = pts[i];
+      const next = pts[i + 1];
+      
+      const cpX1 = curr.x + (next.x - curr.x) / 3;
+      const cpY1 = curr.y;
+      const cpX2 = curr.x + 2 * (next.x - curr.x) / 3;
+      const cpY2 = next.y;
+      
+      path += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`;
+    }
+    return path;
+  };
+
+  const chartStats = React.useMemo(() => {
+    if (trendData.length === 0) return { peak: 0, total: 0, change: 0, isPositive: true };
+    const values = trendData.map(d => trendMetric === "sales" ? d.sales : d.profit);
+    const peak = Math.max(...values, 0);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    const firstVal = values[0] || 0;
+    const lastVal = values[values.length - 1] || 0;
+    let change = 0;
+    if (firstVal > 0) {
+      change = ((lastVal - firstVal) / firstVal) * 100;
+    }
+    return {
+      peak,
+      total,
+      change,
+      isPositive: change >= 0
+    };
+  }, [trendData, trendMetric]);
+
   // Provider breakdown calculations
   const providerStats = React.useMemo(() => {
     const stats: { [key: string]: { sales: number; profit: number; count: number; fees: number } } = {
@@ -484,10 +523,13 @@ export default function FinanceDashboard({
         
         {/* Interactive SVG Trend Chart Panel (2/3 width on large screens) */}
         <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-neutral-200/50 shadow-xs flex flex-col justify-between relative overflow-hidden group">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-neutral-50 pb-4 mb-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-neutral-100 pb-5 mb-5">
             <div>
-              <h3 className="text-sm font-black text-neutral-950 font-sans tracking-tight">منحنى الأداء المالي التفاعلي</h3>
-              <p className="text-[10px] text-neutral-400 mt-0.5">تتبع المبيعات والأرباح المحققة على امتداد فترة الفلترة المحددة</p>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                <h3 className="text-sm font-black text-neutral-950 font-sans tracking-tight">منحنى الأداء المالي التفاعلي</h3>
+              </div>
+              <p className="text-[10px] text-neutral-400 mt-0.5">تتبع ذروة المبيعات وتطور الأرباح الصافية بسلاسة متناهية</p>
             </div>
             
             {/* Metric Switcher buttons */}
@@ -495,7 +537,7 @@ export default function FinanceDashboard({
               <button
                 type="button"
                 onClick={() => setTrendMetric("sales")}
-                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all cursor-pointer ${
                   trendMetric === "sales" 
                     ? "bg-white text-blue-600 shadow-sm" 
                     : "text-neutral-500 hover:text-neutral-900"
@@ -506,7 +548,7 @@ export default function FinanceDashboard({
               <button
                 type="button"
                 onClick={() => setTrendMetric("profit")}
-                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black transition-all cursor-pointer ${
                   trendMetric === "profit" 
                     ? "bg-white text-emerald-600 shadow-sm" 
                     : "text-neutral-500 hover:text-neutral-900"
@@ -517,48 +559,94 @@ export default function FinanceDashboard({
             </div>
           </div>
 
+          {/* Dynamic Period Highlights Widgets inside the card */}
+          <div className="grid grid-cols-3 gap-3 bg-neutral-50/50 p-3 rounded-2xl border border-neutral-150/40 mb-4 text-right">
+            <div className="space-y-0.5">
+              <span className="text-[9px] text-neutral-400 font-bold block">إجمالي الفترة</span>
+              <span className="text-xs font-black text-neutral-900 font-mono">
+                {chartStats.total.toLocaleString("en-US", { maximumFractionDigits: 0 })} ر.س
+              </span>
+            </div>
+            <div className="space-y-0.5 border-r border-neutral-200/60 pr-3">
+              <span className="text-[9px] text-neutral-400 font-bold block">أعلى ذروة</span>
+              <span className="text-xs font-black text-neutral-900 font-mono">
+                {chartStats.peak.toLocaleString("en-US", { maximumFractionDigits: 0 })} ر.س
+              </span>
+            </div>
+            <div className="space-y-0.5 border-r border-neutral-200/60 pr-3">
+              <span className="text-[9px] text-neutral-400 font-bold block">الاتجاه العام</span>
+              <div className="flex items-center gap-1 justify-start">
+                {chartStats.change !== 0 ? (
+                  <>
+                    <TrendingUp className={`w-3 h-3 ${chartStats.isPositive ? "text-emerald-500" : "text-rose-500 rotate-180"}`} />
+                    <span className={`text-[10.5px] font-black font-mono ${chartStats.isPositive ? "text-emerald-600" : "text-rose-600"}`}>
+                      {chartStats.isPositive ? "+" : ""}{chartStats.change.toFixed(1)}%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[10.5px] font-black text-neutral-400">مستقر</span>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Interactive SVG Graph Area */}
-          <div className="relative h-56 w-full pt-4">
-            {/* Absolute positioning tooltips */}
+          <div className="relative h-60 w-full pt-4">
+            {/* Glassmorphic Custom Floating Tooltip */}
             {hoveredPointIdx !== null && trendData[hoveredPointIdx] && (() => {
-              const xPercent = (45 + (hoveredPointIdx * (480 - 45) / (trendData.length - 1))) / 500 * 100;
+              const totalPoints = trendData.length;
+              const idx = hoveredPointIdx;
+              const xPercent = totalPoints > 1 
+                ? (45 + (idx * (480 - 45) / (totalPoints - 1))) / 500 * 100
+                : 50;
+              const activeItem = trendData[idx];
+              const isLeft = xPercent > 50;
+
               return (
                 <div 
-                  className="absolute z-30 bg-neutral-950 text-white rounded-2xl p-3 shadow-xl border border-white/10 text-xs transition-all duration-150 pointer-events-none"
+                  className="absolute z-30 pointer-events-none transition-all duration-150 animate-fadeIn"
                   style={{ 
                     left: `${xPercent}%`, 
                     top: "0px",
-                    transform: "translateX(-50%)",
+                    transform: `translateX(${isLeft ? "-110%" : "10%"})`,
                   }}
                 >
-                  <div className="space-y-1 text-center" dir="rtl">
-                    <p className="text-[10px] text-neutral-400 font-bold">{trendData[hoveredPointIdx].date}</p>
-                    <p className="font-mono font-black text-sm text-white">
-                      {(trendMetric === "sales" ? trendData[hoveredPointIdx].sales : trendData[hoveredPointIdx].profit).toLocaleString("en-US")} ر.س
+                  <div className="bg-white/95 backdrop-blur-md border border-neutral-200/80 rounded-2xl p-3 shadow-xl min-w-[155px] text-right space-y-1.5" dir="rtl">
+                    <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
+                      <p className="text-[10px] text-neutral-450 font-black">{activeItem.date}</p>
+                      {!activeItem.isReal && (
+                        <span className="text-[8px] font-black bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded">توضيحي</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 justify-start">
+                      <div className={`w-2 h-2 rounded-full ${trendMetric === "sales" ? "bg-blue-500" : "bg-emerald-500"}`}></div>
+                      <span className="text-[10px] text-neutral-400 font-bold">
+                        {trendMetric === "sales" ? "مبيعات اليوم" : "أرباح اليوم"}
+                      </span>
+                    </div>
+                    <p className="text-xs font-black text-neutral-900 font-mono">
+                      {(trendMetric === "sales" ? activeItem.sales : activeItem.profit).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                     </p>
-                    <p className="text-[9px] text-neutral-300 font-medium">
-                      {trendMetric === "sales" ? "إجمالي المبيعات" : "الأرباح الصافية"} ({trendData[hoveredPointIdx].count} عملية)
-                    </p>
-                    {!trendData[hoveredPointIdx].isReal && (
-                      <span className="text-[8px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded block mt-1">توضيحي مكمل</span>
-                    )}
+                    <div className="text-[9.5px] font-bold text-neutral-500">
+                      {activeItem.count} عملية مبيعات مسجلة
+                    </div>
                   </div>
                 </div>
               );
             })()}
 
             {/* SVG Elements */}
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="none">
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 500 220" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={trendMetric === "sales" ? "#3b82f6" : "#10b981"} stopOpacity="0.25"/>
-                  <stop offset="100%" stopColor={trendMetric === "sales" ? "#3b82f6" : "#10b981"} stopOpacity="0.00"/>
+                  <stop offset="0%" stopColor={trendMetric === "sales" ? "#2563eb" : "#10b981"} stopOpacity="0.22"/>
+                  <stop offset="100%" stopColor={trendMetric === "sales" ? "#2563eb" : "#10b981"} stopOpacity="0.00"/>
                 </linearGradient>
               </defs>
 
               {/* Grid Lines (Y axis helper lines) */}
-              {[0, 0.33, 0.66, 1].map((ratio, i) => {
-                const y = 25 + (150 * ratio);
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+                const y = 30 + (160 * ratio);
                 return (
                   <g key={i}>
                     <line 
@@ -568,10 +656,11 @@ export default function FinanceDashboard({
                       y2={y} 
                       stroke="#f3f4f6" 
                       strokeWidth="1" 
+                      strokeDasharray="4 6"
                     />
                     <text 
                       x="35" 
-                      y={y + 4} 
+                      y={y + 3} 
                       textAnchor="end" 
                       className="text-[9px] font-mono fill-neutral-400 font-bold"
                     >
@@ -581,61 +670,129 @@ export default function FinanceDashboard({
                 );
               })}
 
-              {/* Draw Area with Linear Gradient */}
-              {trendData.length > 1 && (() => {
+              {/* Draw Area & Curved Lines with Linear Gradient */}
+              {trendData.length > 0 && (() => {
+                const totalPoints = trendData.length;
                 const points = trendData.map((item, idx) => {
-                  const x = 45 + (idx * (480 - 45) / (trendData.length - 1));
+                  const x = totalPoints > 1 
+                    ? 45 + (idx * (480 - 45) / (totalPoints - 1))
+                    : 45 + (480 - 45) / 2;
                   const val = trendMetric === "sales" ? item.sales : item.profit;
-                  const y = 175 - (val / activeMetricMax * 150);
+                  const y = 190 - (val / activeMetricMax * 160);
                   return { x, y };
                 });
 
-                const areaD = `M ${points[0].x} 175 ` + points.map(p => `L ${p.x} ${p.y}`).join(" ") + ` L ${points[points.length - 1].x} 175 Z`;
-                const lineD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+                const bezierLine = getBezierPath(points);
+                const areaD = points.length > 0 
+                  ? `${bezierLine} L ${points[points.length - 1].x} 190 L ${points[0].x} 190 Z`
+                  : "";
+
+                const activePt = hoveredPointIdx !== null ? points[hoveredPointIdx] : null;
 
                 return (
                   <>
-                    <path d={areaD} fill="url(#chartGrad)" />
-                    <path d={lineD} fill="none" stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Intersection crosshair cursor guides */}
+                    {activePt && (
+                      <g className="animate-fadeIn">
+                        {/* Vertical line helper */}
+                        <line 
+                          x1={activePt.x} 
+                          y1="30" 
+                          x2={activePt.x} 
+                          y2="190" 
+                          stroke={trendMetric === "sales" ? "#93c5fd" : "#a7f3d0"} 
+                          strokeWidth="1.2" 
+                          strokeDasharray="3 3" 
+                        />
+                        {/* Horizontal line helper */}
+                        <line 
+                          x1="45" 
+                          y1={activePt.y} 
+                          x2="480" 
+                          y2={activePt.y} 
+                          stroke="#e5e7eb" 
+                          strokeWidth="1" 
+                          strokeDasharray="3 3" 
+                        />
+                      </g>
+                    )}
+
+                    {/* Gradient Area Fill */}
+                    {areaD && <path d={areaD} fill="url(#chartGrad)" className="transition-all duration-300" />}
+                    
+                    {/* Soft Glow Shadow behind primary line */}
+                    {bezierLine && (
+                      <path 
+                        d={bezierLine} 
+                        fill="none" 
+                        stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
+                        strokeWidth="6" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeOpacity="0.12" 
+                        className="transition-all duration-300"
+                      />
+                    )}
+
+                    {/* Primary Curve Line */}
+                    {bezierLine && (
+                      <path 
+                        d={bezierLine} 
+                        fill="none" 
+                        stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
+                        strokeWidth="2.8" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        className="transition-all duration-300"
+                      />
+                    )}
                     
                     {/* Circle Vertex Nodes */}
-                    {points.map((p, idx) => (
-                      <g key={idx}>
-                        <circle 
-                          cx={p.x} 
-                          cy={p.y} 
-                          r={hoveredPointIdx === idx ? 5 : 3.5} 
-                          fill={trendMetric === "sales" ? "#2563eb" : "#059669"} 
-                          stroke="white" 
-                          strokeWidth="1.5" 
-                        />
-                        {hoveredPointIdx === idx && (
+                    {points.map((p, idx) => {
+                      const isHovered = hoveredPointIdx === idx;
+                      return (
+                        <g key={idx}>
+                          {/* Inner glowing halo */}
                           <circle 
                             cx={p.x} 
                             cy={p.y} 
-                            r="10" 
-                            fill={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
-                            fillOpacity="0.15" 
-                            className="animate-ping" 
+                            r={isHovered ? 6 : 3.5} 
+                            fill={trendMetric === "sales" ? "#2563eb" : "#059669"} 
+                            stroke="white" 
+                            strokeWidth={isHovered ? 2 : 1.5} 
+                            className="transition-all duration-150 cursor-pointer"
                           />
-                        )}
-                      </g>
-                    ))}
+                          {isHovered && (
+                            <circle 
+                              cx={p.x} 
+                              cy={p.y} 
+                              r="11" 
+                              fill={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
+                              fillOpacity="0.18" 
+                              className="animate-ping" 
+                            />
+                          )}
+                        </g>
+                      );
+                    })}
                   </>
                 );
               })()}
 
               {/* Invisible Catcher columns for smooth hovering */}
               {trendData.map((item, idx) => {
-                const colWidth = (480 - 45) / trendData.length;
-                const x = 45 + (idx * (480 - 45) / (trendData.length - 1)) - colWidth / 2;
+                const totalPoints = trendData.length;
+                const colWidth = totalPoints > 1 ? (480 - 45) / totalPoints : 435;
+                const x = totalPoints > 1
+                  ? 45 + (idx * (480 - 45) / (totalPoints - 1)) - colWidth / 2
+                  : 45;
                 return (
                   <rect
                     key={idx}
                     x={x}
                     y="10"
                     width={colWidth}
-                    height="175"
+                    height="190"
                     fill="transparent"
                     className="cursor-pointer"
                     onMouseEnter={() => setHoveredPointIdx(idx)}
@@ -646,15 +803,26 @@ export default function FinanceDashboard({
 
               {/* Date labels under the chart */}
               {trendData.map((item, idx) => {
-                if (trendData.length > 6 && idx % 2 !== 0 && idx !== trendData.length - 1) return null; // reduce label density
-                const x = 45 + (idx * (480 - 45) / (trendData.length - 1));
+                const total = trendData.length;
+                let show = false;
+                if (total <= 6) {
+                  show = true;
+                } else if (total <= 12) {
+                  show = idx % 2 === 0;
+                } else {
+                  show = idx === 0 || idx === Math.floor(total / 2) || idx === total - 1 || idx % 3 === 0;
+                }
+                if (!show) return null;
+                const x = total > 1
+                  ? 45 + (idx * (480 - 45) / (total - 1))
+                  : 45 + (480 - 45) / 2;
                 return (
                   <text
                     key={idx}
                     x={x}
-                    y="192"
+                    y="210"
                     textAnchor="middle"
-                    className="text-[9px] font-bold fill-neutral-450 font-sans"
+                    className="text-[9px] font-black fill-neutral-400 font-sans"
                   >
                     {item.date}
                   </text>
