@@ -23,6 +23,8 @@ import {
   X,
   ExternalLink,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Sheet,
   Download,
   Calendar,
@@ -70,6 +72,10 @@ export default function FinanceDashboard({
   // Interactive Trend Chart State
   const [trendMetric, setTrendMetric] = useState<"sales" | "profit">("sales");
   const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
+
+  // Expanded toggles for UI sections
+  const [isGroupsExpanded, setIsGroupsExpanded] = useState(false);
+  const [isOpsExpanded, setIsOpsExpanded] = useState(false);
 
   // Prevent background scrolling when transaction details modal, delete confirmation, or deleted records modal is open
   React.useEffect(() => {
@@ -923,84 +929,117 @@ export default function FinanceDashboard({
           <span className="text-[9px] text-neutral-400">All groups status</span>
         </div>
 
-        {finalGroupsList.length === 0 ? (
-          <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
-            <p className="text-neutral-400 text-xs">لا توجد مجموعات متاحة.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-            {finalGroupsList.map((g) => {
-              const groupOps = filteredByDate.filter(op => op.packageAmount === g.packageAmount);
-              if (groupOps.length === 0) return null;
+        {(() => {
+          const activeGroups = finalGroupsList.filter((g) => {
+            const groupOps = filteredByDate.filter((op) => op.packageAmount === g.packageAmount);
+            return groupOps.length > 0;
+          });
 
-              const totalGroupSales = groupOps.reduce((sum, op) => sum + op.totalInstallmentAmount, 0);
-              const totalGroupNet = groupOps.reduce((sum, op) => sum + op.packageAmount, 0);
-              const totalGroupDown = groupOps.reduce((sum, op) => sum + op.downPayment, 0);
-              const totalGroupTransfer = groupOps.reduce((sum, op) => sum + (op.packageAmount - op.downPayment), 0);
-              const totalGroupFees = groupOps.reduce((sum, op) => sum + getOperationFee(op), 0);
-              const totalGroupCommissions = groupOps.reduce((sum, op) => sum + (op.commissionFee || 0), 0);
-              const totalGroupProfitWithDown = totalGroupSales - totalGroupNet - totalGroupFees - totalGroupCommissions;
-              const totalGroupProfitAfterDown = totalGroupProfitWithDown - totalGroupDown;
+          if (activeGroups.length === 0) {
+            return (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
+                <p className="text-neutral-400 text-xs">لا توجد مجموعات متاحة.</p>
+              </div>
+            );
+          }
 
-              return (
-                <div 
-                  key={g.id} 
-                  className="bg-white rounded-2xl border border-neutral-200/50 p-5 shadow-xs flex flex-col justify-between space-y-5 hover:border-neutral-300 transition-colors"
-                  id={`group-card-${g.id}`}
-                >
-                  <div className="flex justify-between items-center border-b border-neutral-50 pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center">
-                        <Layers className="w-4 h-4 text-neutral-600" />
+          const visibleGroups = isGroupsExpanded ? activeGroups : activeGroups.slice(0, 2);
+
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                {visibleGroups.map((g) => {
+                  const groupOps = filteredByDate.filter((op) => op.packageAmount === g.packageAmount);
+                  const totalGroupSales = groupOps.reduce((sum, op) => sum + op.totalInstallmentAmount, 0);
+                  const totalGroupNet = groupOps.reduce((sum, op) => sum + op.packageAmount, 0);
+                  const totalGroupDown = groupOps.reduce((sum, op) => sum + op.downPayment, 0);
+                  const totalGroupTransfer = groupOps.reduce((sum, op) => sum + (op.packageAmount - op.downPayment), 0);
+                  const totalGroupFees = groupOps.reduce((sum, op) => sum + getOperationFee(op), 0);
+                  const totalGroupCommissions = groupOps.reduce((sum, op) => sum + (op.commissionFee || 0), 0);
+                  const totalGroupProfitWithDown = totalGroupSales - totalGroupNet - totalGroupFees - totalGroupCommissions;
+
+                  return (
+                    <div 
+                      key={g.id} 
+                      className="bg-white rounded-2xl border border-neutral-200/50 p-5 shadow-xs flex flex-col justify-between space-y-5 hover:border-neutral-300 transition-colors animate-fadeIn"
+                      id={`group-card-${g.id}`}
+                    >
+                      <div className="flex justify-between items-center border-b border-neutral-50 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center">
+                            <Layers className="w-4 h-4 text-neutral-600" />
+                          </div>
+                          <h4 className="text-sm font-black text-neutral-950 font-sans">{`فئة ${g.packageAmount.toLocaleString("en-US")} ر.س`}</h4>
+                        </div>
+                        <span className="text-[9.5px] font-black bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded">
+                          {groupOps.length} عملية{(groupOps.length > 2 && groupOps.length < 11) ? "ات" : ""}
+                        </span>
                       </div>
-                      <h4 className="text-sm font-black text-neutral-950 font-sans">{`فئة ${g.packageAmount.toLocaleString("en-US")} ر.س`}</h4>
-                    </div>
-                    <span className="text-[9.5px] font-black bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded">
-                      {groupOps.length} عملية{(groupOps.length > 2 && groupOps.length < 11) ? "ات" : ""}
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-neutral-400 font-bold">اجمالي تمويل العميل</p>
-                      <p className="text-xs font-black text-neutral-950">{totalGroupSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] text-neutral-400 font-bold">اجمالي تمويل العميل</p>
+                          <p className="text-xs font-black text-neutral-950">{totalGroupSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] text-neutral-400 font-bold">صافي تمويل العميل</p>
+                          <p className="text-xs font-black text-neutral-950">{totalGroupNet.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] text-neutral-400 font-bold">الدفعة المخصومة</p>
+                          <p className="text-xs font-black text-neutral-950">{totalGroupDown.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] text-neutral-400 font-bold">الصافي للعملاء</p>
+                          <p className="text-xs font-black text-amber-600">{totalGroupTransfer.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-0.5 border-t border-neutral-50 pt-3">
+                          <p className="text-[9px] text-neutral-400 font-bold">رسوم مزود الخدمة (6.99%)</p>
+                          <p className="text-xs font-black text-red-600">{totalGroupFees.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-0.5 border-t border-neutral-50 pt-3">
+                          <p className="text-[9px] text-neutral-400 font-bold">رسوم العمولة</p>
+                          <p className="text-xs font-black text-red-600">{totalGroupCommissions.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
+                        </div>
+                        <div className="space-y-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
+                          <p className="text-[10px] text-emerald-700 font-black">صافي أرباح التاجر النهائية المحققة</p>
+                          <p className="font-black text-emerald-700 text-sm mt-0.5">
+                            {totalGroupProfitWithDown.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                          </p>
+                          <p className="text-[7.5px] text-neutral-400 mt-0.5 leading-relaxed">
+                            * الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك الصافية.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-neutral-400 font-bold">صافي تمويل العميل</p>
-                      <p className="text-xs font-black text-neutral-950">{totalGroupNet.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-neutral-400 font-bold">الدفعة المخصومة</p>
-                      <p className="text-xs font-black text-neutral-950">{totalGroupDown.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] text-neutral-400 font-bold">الصافي للعملاء</p>
-                      <p className="text-xs font-black text-amber-600">{totalGroupTransfer.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
-                    </div>
-                    <div className="space-y-0.5 border-t border-neutral-50 pt-3">
-                      <p className="text-[9px] text-neutral-400 font-bold">رسوم مزود الخدمة (6.99%)</p>
-                      <p className="text-xs font-black text-red-600">{totalGroupFees.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
-                    </div>
-                    <div className="space-y-0.5 border-t border-neutral-50 pt-3">
-                      <p className="text-[9px] text-neutral-400 font-bold">رسوم العمولة</p>
-                      <p className="text-xs font-black text-red-600">{totalGroupCommissions.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
-                    </div>
-                    <div className="space-y-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
-                      <p className="text-[10px] text-emerald-700 font-black">صافي أرباح التاجر النهائية المحققة</p>
-                      <p className="font-black text-emerald-700 text-sm mt-0.5">
-                        {totalGroupProfitWithDown.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
-                      </p>
-                      <p className="text-[7.5px] text-neutral-400 mt-0.5 leading-relaxed">
-                        * الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك الصافية.
-                      </p>
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+
+              {activeGroups.length > 2 && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupsExpanded(!isGroupsExpanded)}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-white hover:bg-neutral-50 text-neutral-800 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs border border-neutral-200/60"
+                  >
+                    {isGroupsExpanded ? (
+                      <>
+                        <ChevronUp className="w-4 h-4 text-neutral-500 animate-bounce" />
+                        <span>أقل</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4 text-neutral-500 animate-bounce" />
+                        <span>المزيد ({activeGroups.length - 2})</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-              );
-            })}
-
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Recent Activity Dashboard Section */}
@@ -1057,25 +1096,28 @@ export default function FinanceDashboard({
             <p className="text-[10px] text-neutral-400 animate-pulse">جرب كتابة رمز آخر أو اختيار معيار مغاير من الأعلى.</p>
           </div>
         ) : (
-          <div>
-            {/* Desktop View (Table style - hidden on mobile screens) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-right border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#fafafa]/80 border-b border-neutral-100 text-neutral-450 text-[10px] font-black font-sans uppercase tracking-wider">
-                    <th className="p-4">رمز العملية</th>
-                    <th className="p-4">الفئة المبيعة</th>
-                    <th className="p-4 text-center">مزود التقسيط</th>
-                    <th className="p-4 text-left">الدفعة الأولى</th>
-                    <th className="p-4 text-left">رسوم المزود</th>
-                    <th className="p-4 text-left">رسوم العمولة</th>
-                    <th className="p-4 text-left font-sans">صافي أرباح التاجر</th>
-                    <th className="p-4 text-center">القسط شهريّ</th>
-                    <th className="p-4 text-center">الإجراء</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 text-neutral-700">
-                  {filteredOperations.map((op) => {
+          (() => {
+            const visibleOperations = isOpsExpanded ? filteredOperations : filteredOperations.slice(0, 2);
+            return (
+              <div>
+                {/* Desktop View (Table style - hidden on mobile screens) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-right border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#fafafa]/80 border-b border-neutral-100 text-neutral-450 text-[10px] font-black font-sans uppercase tracking-wider">
+                        <th className="p-4">رمز العملية</th>
+                        <th className="p-4">الفئة المبيعة</th>
+                        <th className="p-4 text-center">مزود التقسيط</th>
+                        <th className="p-4 text-left">الدفعة الأولى</th>
+                        <th className="p-4 text-left">رسوم المزود</th>
+                        <th className="p-4 text-left">رسوم العمولة</th>
+                        <th className="p-4 text-left font-sans">صافي أرباح التاجر</th>
+                        <th className="p-4 text-center">القسط شهريّ</th>
+                        <th className="p-4 text-center">الإجراء</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 text-neutral-700">
+                      {visibleOperations.map((op) => {
                     const groupInfo = getGroupDetails(op.packageAmount, op.totalInstallmentAmount);
                     const badgeStyles = getProviderBadge(op.provider);
 
@@ -1152,7 +1194,7 @@ export default function FinanceDashboard({
 
             {/* Mobile View (Bento Card Style - hidden on desktop screens) */}
             <div className="md:hidden p-4 space-y-3.5 bg-neutral-50/50">
-              {filteredOperations.map((op) => {
+              {visibleOperations.map((op) => {
                 const groupInfo = getGroupDetails(op.packageAmount, op.totalInstallmentAmount);
                 const badgeStyles = getProviderBadge(op.provider);
 
@@ -1160,7 +1202,7 @@ export default function FinanceDashboard({
                   <div
                     key={op.id}
                     onClick={() => setSelectedOp(op)}
-                    className="bg-white p-4 rounded-xl border border-neutral-200/60 shadow-xs space-y-3 relative overflow-hidden active:scale-98 transition-all"
+                    className="bg-white p-4 rounded-xl border border-neutral-200/60 shadow-xs space-y-3 relative overflow-hidden active:scale-98 transition-all animate-fadeIn"
                   >
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-neutral-950 animate-pulse"></div>
 
@@ -1244,8 +1286,31 @@ export default function FinanceDashboard({
                 );
               })}
             </div>
+
+            {filteredOperations.length > 2 && (
+              <div className="flex justify-center p-5 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setIsOpsExpanded(!isOpsExpanded)}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs border border-neutral-200/50"
+                >
+                  {isOpsExpanded ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 text-neutral-500 animate-bounce" />
+                      <span>أقل</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 text-neutral-500 animate-bounce" />
+                      <span>المزيد ({filteredOperations.length - 2})</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        );
+      })())}
       </div>
 
       {/* DETAILED RECEIPT DIALOG MODAL */}

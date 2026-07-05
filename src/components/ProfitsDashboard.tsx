@@ -15,6 +15,8 @@ import {
   Receipt, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   Sparkles,
   BarChart3,
   Building,
@@ -77,6 +79,8 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
     const now = new Date();
     return `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   });
+
+  const [isProfitsExpanded, setIsProfitsExpanded] = useState<boolean>(false);
 
   // Calculate month and year index
   const { targetMonthIdx, targetYear } = useMemo(() => {
@@ -564,107 +568,30 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
             لا توجد عمليات مسجلة في هذا الشهر لاستعراض ربحيتها
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Mobile/Tablet Card-based Layout (Highly polished receipts) */}
-            <div className="block lg:hidden space-y-4">
-              {monthlyOperations.map((op) => {
-                const profit = getOperationProfit(op);
-                const fee = getOperationFee(op);
-                const cleanedName = cleanClientName(op.clientName);
-
-                return (
-                  <div key={op.id} className="p-5 rounded-2xl border border-neutral-150 bg-neutral-50/40 space-y-4 relative overflow-hidden">
-                    {/* Top Row */}
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="font-black text-xs text-neutral-900 leading-tight">
-                          {cleanedName || "عملية بيع"}
-                        </div>
-                        <div className="text-[10px] text-neutral-450 font-medium">
-                          {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
-                        </div>
-                      </div>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${
-                        op.provider === "تمارا" 
-                          ? "bg-amber-50 text-amber-700 border-amber-200/50" 
-                          : op.provider === "تابي" 
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200/50" 
-                            : "bg-neutral-900 text-white border-neutral-900"
-                      }`}>
-                        {op.provider}
-                      </span>
-                    </div>
-
-                    <hr className="border-neutral-200/50" />
-
-                    {/* Mid Grid */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                      <div>
-                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">رأس المال (الباقة)</span>
-                        <span className="font-black text-neutral-800">{op.packageAmount.toLocaleString("en-US")} ر.س</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">إجمالي التمويل</span>
-                        <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</span>
-                      </div>
-                      {op.downPayment > 0 && (
-                        <div>
-                          <span className="text-[10px] text-amber-600 font-bold block mb-0.5">الدفعة الأولى</span>
-                          <span className="font-black text-amber-600">{op.downPayment.toLocaleString("en-US")} ر.س</span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">
-                          رسوم الخدمة (6.99%)
-                        </span>
-                        <span className="font-black text-red-500">{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">العمولة المدفوعة</span>
-                        <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</span>
-                      </div>
-                    </div>
-
-                    {/* Bottom Highlight */}
-                    <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
-                      <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
-                      <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("en-US")} ر.س</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Desktop Roomy Spacious Table Layout */}
-            <div className="hidden lg:block overflow-x-auto border border-neutral-100 rounded-2xl">
-              <table className="w-full text-right text-xs table-auto">
-                <thead>
-                  <tr className="bg-neutral-50/60 border-b border-neutral-100 text-neutral-500 font-black">
-                    <th className="py-4 px-4 font-black">العميل / التفاصيل</th>
-                    <th className="py-4 px-4 font-black">مزود الخدمة</th>
-                    <th className="py-4 px-4 font-black">رأس المال (الباقة)</th>
-                    <th className="py-4 px-4 font-black">إجمالي التمويل</th>
-                    <th className="py-4 px-4 font-black">رسوم الخدمة (6.99%)</th>
-                    <th className="py-4 px-4 font-black">العمولة المدفوعة</th>
-                    <th className="py-4 px-4 font-black text-right text-[#10b981]">صافي الربح</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700">
-                  {monthlyOperations.map((op) => {
+          (() => {
+            const visibleProfits = isProfitsExpanded ? monthlyOperations : monthlyOperations.slice(0, 2);
+            return (
+              <div className="space-y-4">
+                {/* Mobile/Tablet Card-based Layout (Highly polished receipts) */}
+                <div className="block lg:hidden space-y-4">
+                  {visibleProfits.map((op) => {
                     const profit = getOperationProfit(op);
                     const fee = getOperationFee(op);
                     const cleanedName = cleanClientName(op.clientName);
 
                     return (
-                      <tr key={op.id} className="hover:bg-neutral-50/30 transition-all duration-150">
-                        <td className="py-4 px-4">
-                          <div className="font-black text-neutral-900 text-[13px]">{cleanedName}</div>
-                          <div className="text-[10px] text-neutral-450 mt-0.5 font-bold">
-                            {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
+                      <div key={op.id} className="p-5 rounded-2xl border border-neutral-150 bg-neutral-50/40 space-y-4 relative overflow-hidden animate-fadeIn">
+                        {/* Top Row */}
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="font-black text-xs text-neutral-900 leading-tight">
+                              {cleanedName || "عملية بيع"}
+                            </div>
+                            <div className="text-[10px] text-neutral-450 font-medium">
+                              {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
+                            </div>
                           </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black border ${
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${
                             op.provider === "تمارا" 
                               ? "bg-amber-50 text-amber-700 border-amber-200/50" 
                               : op.provider === "تابي" 
@@ -673,28 +600,132 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                           }`}>
                             {op.provider}
                           </span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("en-US")} ر.س</div>
+                        </div>
+
+                        <hr className="border-neutral-200/50" />
+
+                        {/* Mid Grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                          <div>
+                            <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">رأس المال (الباقة)</span>
+                            <span className="font-black text-neutral-800">{op.packageAmount.toLocaleString("en-US")} ر.س</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">إجمالي التمويل</span>
+                            <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</span>
+                          </div>
                           {op.downPayment > 0 && (
-                            <div className="text-[10px] text-amber-600 font-bold mt-0.5">
-                              الدفعة الأولى: {op.downPayment.toLocaleString("en-US")} ر.س
+                            <div>
+                              <span className="text-[10px] text-amber-600 font-bold block mb-0.5">الدفعة الأولى</span>
+                              <span className="font-black text-amber-600">{op.downPayment.toLocaleString("en-US")} ر.س</span>
                             </div>
                           )}
-                        </td>
-                        <td className="py-4 px-4 font-bold text-neutral-800 text-[13px]">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</td>
-                        <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">
-                          <div>{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</div>
-                        </td>
-                        <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
-                        <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">{Math.round(profit).toLocaleString("en-US")} <span className="text-[10px] font-bold">ر.س</span></td>
-                      </tr>
+                          <div>
+                            <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">
+                              رسوم الخدمة (6.99%)
+                            </span>
+                            <span className="font-black text-red-500">{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">العمولة المدفوعة</span>
+                            <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Highlight */}
+                        <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
+                          <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
+                          <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("en-US")} ر.س</span>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </div>
+
+                {/* Desktop Roomy Spacious Table Layout */}
+                <div className="hidden lg:block overflow-x-auto border border-neutral-100 rounded-2xl">
+                  <table className="w-full text-right text-xs table-auto">
+                    <thead>
+                      <tr className="bg-neutral-50/60 border-b border-neutral-100 text-neutral-500 font-black">
+                        <th className="py-4 px-4 font-black">العميل / التفاصيل</th>
+                        <th className="py-4 px-4 font-black">مزود الخدمة</th>
+                        <th className="py-4 px-4 font-black">رأس المال (الباقة)</th>
+                        <th className="py-4 px-4 font-black">إجمالي التمويل</th>
+                        <th className="py-4 px-4 font-black">رسوم الخدمة (6.99%)</th>
+                        <th className="py-4 px-4 font-black">العمولة المدفوعة</th>
+                        <th className="py-4 px-4 font-black text-right text-[#10b981]">صافي الربح</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700">
+                      {visibleProfits.map((op) => {
+                        const profit = getOperationProfit(op);
+                        const fee = getOperationFee(op);
+                        const cleanedName = cleanClientName(op.clientName);
+
+                        return (
+                          <tr key={op.id} className="hover:bg-neutral-50/30 transition-all duration-150 animate-fadeIn">
+                            <td className="py-4 px-4">
+                              <div className="font-black text-neutral-900 text-[13px]">{cleanedName}</div>
+                              <div className="text-[10px] text-neutral-450 mt-0.5 font-bold">
+                                {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black border ${
+                                op.provider === "تمارا" 
+                                  ? "bg-amber-50 text-amber-700 border-amber-200/50" 
+                                  : op.provider === "تابي" 
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200/50" 
+                                    : "bg-neutral-900 text-white border-neutral-900"
+                              }`}>
+                                {op.provider}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("en-US")} ر.س</div>
+                              {op.downPayment > 0 && (
+                                <div className="text-[10px] text-amber-600 font-bold mt-0.5">
+                                  الدفعة الأولى: {op.downPayment.toLocaleString("en-US")} ر.س
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 font-bold text-neutral-800 text-[13px]">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</td>
+                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">
+                              <div>{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</div>
+                            </td>
+                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
+                            <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">{Math.round(profit).toLocaleString("en-US")} <span className="text-[10px] font-bold">ر.س</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {monthlyOperations.length > 2 && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsProfitsExpanded(!isProfitsExpanded)}
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs border border-neutral-200/50"
+                    >
+                      {isProfitsExpanded ? (
+                        <>
+                          <ChevronUp className="w-4 h-4 text-neutral-500 animate-bounce" />
+                          <span>أقل</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4 text-neutral-500 animate-bounce" />
+                          <span>المزيد ({monthlyOperations.length - 2})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
 
