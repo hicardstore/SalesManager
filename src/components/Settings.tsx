@@ -666,21 +666,11 @@ export function Settings({
               <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
                 <span className="text-xs font-black text-neutral-700">نظام عرض الأرقام</span>
                 <select
-                  value={activeProject.numberSystem || "en"}
-                  onChange={async (e) => {
-                    const projectRef = doc(db, "projects", activeProject.id);
-                    try {
-                      await updateDoc(projectRef, {
-                        numberSystem: e.target.value
-                      });
-                    } catch (err) {
-                      console.error("Failed to update number system:", err);
-                    }
-                  }}
-                  className="w-full bg-white border border-neutral-200 rounded-lg p-2.5 text-xs font-bold text-neutral-850 focus:outline-none focus:border-neutral-950"
+                  disabled
+                  value="en"
+                  className="w-full bg-neutral-100 border border-neutral-200 rounded-lg p-2.5 text-xs font-bold text-neutral-400 cursor-not-allowed"
                 >
-                  <option value="en">الأرقام الإنجليزية الغربية (12345)</option>
-                  <option value="ar">الأرقام العربية الشرقية (١٢٣٤٥)</option>
+                  <option value="en">الأرقام الإنجليزية الغربية (12345) - افتراضي دائم</option>
                 </select>
                 <span className="text-[10px] text-neutral-400 font-bold mt-1">
                   معاينة التنسيق الحالي: <span className="text-neutral-700 font-black">{formatMoney(1500.5, activeProject)}</span>

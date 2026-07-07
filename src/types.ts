@@ -41,6 +41,9 @@ export interface Operation {
   monthlyInstallment: number;
   durationMonths: number;
   commissionFee?: number; // Commission fee recorded with the operation
+  advancePaidBy?: "كلنا" | "نواف" | "عبدالله";
+  downPaymentPaidBy?: "العميل" | "كلنا" | "نواف" | "عبدالله";
+  transferFeePaidBy?: "كلنا" | "نواف" | "عبدالله";
 }
 
 export interface FinancialStats {

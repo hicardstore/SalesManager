@@ -116,19 +116,12 @@ export function calculateOperationBreakdown(params: {
  */
 export function formatMoney(val: number, activeProject?: any): string {
   const currency = activeProject?.currencySymbol || "ر.س";
-  const numSystem = activeProject?.numberSystem || "en";
   
   // Format with thousands separator
   const formattedEn = Number(val).toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
-  
-  if (numSystem === "ar") {
-    const arabicDigits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
-    const formattedAr = formattedEn.replace(/[0-9]/g, (w) => arabicDigits[+w]);
-    return `${formattedAr} ${currency}`;
-  }
   
   return `${formattedEn} ${currency}`;
 }

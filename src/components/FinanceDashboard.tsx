@@ -57,6 +57,7 @@ export default function FinanceDashboard({
   const { user } = useAuth();
   // Advanced filters state
   const [filterGroup, setFilterGroup] = useState<"all" | "major" | "minor" | "custom">("all");
+  const [partnerFilter, setPartnerFilter] = useState<"all" | "كلنا" | "نواف" | "عبدالله">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOp, setSelectedOp] = useState<Operation | null>(null);
   const [opToDelete, setOpToDelete] = useState<Operation | null>(null);
@@ -278,8 +279,105 @@ export default function FinanceDashboard({
   // Dynamically analyze all groups
   const finalGroupsList = PREDEFINED_GROUPS;
 
-  // Filter operations dynamically based on tabs and search text
-  const filteredOperations = filteredByDate;
+  // Filter operations dynamically based on tabs, partner, and search text
+  const filteredOperations = React.useMemo(() => {
+    return filteredByDate.filter((op) => {
+      // 1. Group Category Filter
+      if (filterGroup === "major" && op.packageAmount < 3000) return false;
+      if (filterGroup === "minor" && op.packageAmount >= 3000) return false;
+      if (filterGroup === "custom") {
+        const groupInfo = getGroupDetails(op.packageAmount, op.totalInstallmentAmount);
+        if (groupInfo.id !== "custom") return false;
+      }
+
+      // 2. Partner Filter
+      if (partnerFilter !== "all") {
+        const advP = op.advancePaidBy || "كلنا";
+        const dpP = op.downPaymentPaidBy || "العميل";
+        const tfP = op.transferFeePaidBy || "كلنا";
+
+        if (partnerFilter === "كلنا") {
+          const contributed = advP === "كلنا" || dpP === "كلنا" || tfP === "كلنا";
+          if (!contributed) return false;
+        } else if (partnerFilter === "نواف") {
+          const contributed = advP === "نواف" || dpP === "نواف" || tfP === "نواف";
+          if (!contributed) return false;
+        } else if (partnerFilter === "عبدالله") {
+          const contributed = advP === "عبدالله" || dpP === "عبدالله" || tfP === "عبدالله";
+          if (!contributed) return false;
+        }
+      }
+
+      // 3. Search text query
+      if (searchQuery.trim() !== "") {
+        const q = searchQuery.toLowerCase().trim();
+        const idMatches = op.id.toLowerCase().includes(q) || op.clientId.toLowerCase().includes(q);
+        const nameMatches = op.clientName.toLowerCase().includes(q);
+        const providerMatches = op.provider.toLowerCase().includes(q);
+        const payerMatches = 
+          (op.advancePaidBy || "كلنا").toLowerCase().includes(q) ||
+          (op.downPaymentPaidBy || "العميل").toLowerCase().includes(q) ||
+          (op.transferFeePaidBy || "كلنا").toLowerCase().includes(q);
+
+        if (!idMatches && !nameMatches && !providerMatches && !payerMatches) return false;
+      }
+
+      return true;
+    });
+  }, [filteredByDate, filterGroup, partnerFilter, searchQuery]);
+
+  // Calculate detailed partner stats for "كلنا", "نواف", and "عبدالله"
+  const partnerStats = React.useMemo(() => {
+    const statsMap = {
+      "كلنا": { advance: 0, downPayment: 0, transferFee: 0, total: 0, count: 0 },
+      "نواف": { advance: 0, downPayment: 0, transferFee: 0, total: 0, count: 0 },
+      "عبدالله": { advance: 0, downPayment: 0, transferFee: 0, total: 0, count: 0 },
+    };
+
+    filteredByDate.forEach((op) => {
+      const advP = op.advancePaidBy || "كلنا";
+      const dpP = op.downPaymentPaidBy || "العميل";
+      const tfP = op.transferFeePaidBy || "كلنا";
+
+      // 1. سلفة العميل: (packageAmount - downPayment)
+      const advanceVal = Math.max(0, op.packageAmount - op.downPayment);
+      if (statsMap[advP]) {
+        statsMap[advP].advance += advanceVal;
+      }
+
+      // 2. الدفعة الأولى: op.downPayment
+      const dpVal = op.downPayment || 0;
+      if (dpP !== "العميل" && statsMap[dpP as keyof typeof statsMap]) {
+        statsMap[dpP as keyof typeof statsMap].downPayment += dpVal;
+      }
+
+      // 3. رسوم التحويل: op.commissionFee
+      const tfVal = op.commissionFee || 0;
+      if (statsMap[tfP]) {
+        statsMap[tfP].transferFee += tfVal;
+      }
+
+      // Count operations where this partner contributed
+      const partners = ["كلنا", "نواف", "عبدالله"] as const;
+      partners.forEach((p) => {
+        const contributed = 
+          advP === p || 
+          dpP === p || 
+          tfP === p;
+        if (contributed) {
+          statsMap[p].count += 1;
+        }
+      });
+    });
+
+    // Calculate total sum for each partner
+    Object.keys(statsMap).forEach((key) => {
+      const k = key as keyof typeof statsMap;
+      statsMap[k].total = statsMap[k].advance + statsMap[k].downPayment + statsMap[k].transferFee;
+    });
+
+    return statsMap;
+  }, [filteredByDate]);
 
   // Trend Data for visual SVG chart
   const trendData = React.useMemo(() => {
@@ -315,11 +413,11 @@ export default function FinanceDashboard({
 
     if (result.length === 0) {
       return [
-        { date: "١ يوليو", sales: 12000, profit: 4200, count: 1, isReal: false },
-        { date: "٧ يوليو", sales: 18500, profit: 6475, count: 2, isReal: false },
-        { date: "١٤ يوليو", sales: 15000, profit: 5250, count: 1, isReal: false },
-        { date: "٢١ يوليو", sales: 27400, profit: 9590, count: 3, isReal: false },
-        { date: "٢٨ يوليو", sales: 34000, profit: 11900, count: 4, isReal: false },
+        { date: "1 يوليو", sales: 12000, profit: 4200, count: 1, isReal: false },
+        { date: "7 يوليو", sales: 18500, profit: 6475, count: 2, isReal: false },
+        { date: "14 يوليو", sales: 15000, profit: 5250, count: 1, isReal: false },
+        { date: "21 يوليو", sales: 27400, profit: 9590, count: 3, isReal: false },
+        { date: "28 يوليو", sales: 34000, profit: 11900, count: 4, isReal: false },
       ];
     } else if (result.length < 5) {
       const pad = [
@@ -1087,6 +1185,130 @@ export default function FinanceDashboard({
 
       </div>
 
+      {/* Partner Contributions Scorecards Section */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <div>
+            <h3 className="text-xs font-black text-neutral-950 font-sans tracking-tight">بطاقات مساهمات تمويل الشركاء</h3>
+            <p className="text-[10px] text-neutral-400 mt-0.5 font-sans">
+              توضح كافة المبالغ والمصاريف المدفوعة من قبل كل شريك (سلف، دفعات أولى، رسوم تحويل) - اضغط لتصفية التقارير والعمليات
+            </p>
+          </div>
+          {partnerFilter !== "all" && (
+            <button
+              type="button"
+              onClick={() => setPartnerFilter("all")}
+              className="self-start sm:self-auto px-3 py-1 bg-neutral-900 text-white rounded-lg text-[10px] font-black hover:bg-neutral-800 transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <span>إلغاء التصفية النشطة</span>
+              <span className="text-[9px] opacity-75 font-mono">({partnerFilter})</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="partner-contributions-grid">
+          {(["كلنا", "نواف", "عبدالله"] as const).map((partnerName) => {
+            const stats = partnerStats[partnerName];
+            const isActive = partnerFilter === partnerName;
+            
+            // Nice color coding per partner for premium feel
+            let partnerTheme = {
+              border: "hover:border-neutral-350",
+              activeBorder: "border-neutral-950 ring-2 ring-neutral-950/10",
+              badge: "bg-neutral-100 text-neutral-900",
+              accent: "text-neutral-950",
+              lightBg: "bg-neutral-50/50"
+            };
+            if (partnerName === "نواف") {
+              partnerTheme = {
+                border: "hover:border-blue-300",
+                activeBorder: "border-blue-600 ring-2 ring-blue-600/10",
+                badge: "bg-blue-50 text-blue-700 border-blue-100",
+                accent: "text-blue-700",
+                lightBg: "bg-blue-50/20"
+              };
+            } else if (partnerName === "عبدالله") {
+              partnerTheme = {
+                border: "hover:border-emerald-300",
+                activeBorder: "border-emerald-600 ring-2 ring-emerald-600/10",
+                badge: "bg-emerald-50 text-emerald-700 border-emerald-100",
+                accent: "text-emerald-700",
+                lightBg: "bg-emerald-50/20"
+              };
+            }
+
+            return (
+              <div
+                key={partnerName}
+                onClick={() => setPartnerFilter(isActive ? "all" : partnerName)}
+                className={`bg-white p-5 rounded-2xl border transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col justify-between h-44 group ${
+                  isActive 
+                    ? `${partnerTheme.activeBorder} shadow-md` 
+                    : `border-neutral-200/50 shadow-xs ${partnerTheme.border}`
+                }`}
+              >
+                {/* Active Indicator Top Light Accent */}
+                {isActive && (
+                  <div className={`absolute top-0 inset-x-0 h-1 ${partnerName === "نواف" ? "bg-blue-600" : partnerName === "عبدالله" ? "bg-emerald-600" : "bg-neutral-950"}`} />
+                )}
+
+                <div className="flex justify-between items-start w-full">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-black border ${partnerTheme.badge}`}>
+                      {partnerName}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 font-bold">
+                      {stats.count} عمليات مساهمة
+                    </span>
+                  </div>
+                  {isActive ? (
+                    <span className="flex items-center gap-1 text-[9.5px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full animate-pulse">
+                      <span>تصفية نشطة</span>
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      انقر للتصفية 🔍
+                    </span>
+                  )}
+                </div>
+
+                <div className="my-3">
+                  <span className="text-[10px] text-neutral-400 block font-bold leading-none">إجمالي المدفوعات التمويلية</span>
+                  <div className="flex items-baseline gap-1 mt-1.5">
+                    <span className={`text-xl lg:text-2xl font-black font-sans tracking-tight leading-none ${partnerTheme.accent}`}>
+                      {stats.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[10px] font-sans font-bold text-neutral-400">ر.س</span>
+                  </div>
+                </div>
+
+                {/* Breakdown List */}
+                <div className={`grid grid-cols-3 gap-1.5 p-2 rounded-xl text-center text-[9px] ${partnerTheme.lightBg} border border-neutral-100`}>
+                  <div>
+                    <span className="text-neutral-400 block font-bold leading-none">سلفة العميل</span>
+                    <span className="text-neutral-800 font-mono mt-1 block font-bold">
+                      {stats.advance.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                  <div className="border-r border-neutral-200/50">
+                    <span className="text-neutral-400 block font-bold leading-none">دفعة أولى</span>
+                    <span className="text-neutral-800 font-mono mt-1 block font-bold">
+                      {stats.downPayment.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                  <div className="border-r border-neutral-200/50">
+                    <span className="text-neutral-400 block font-bold leading-none">رسوم تحويل</span>
+                    <span className="text-neutral-800 font-mono mt-1 block font-bold">
+                      {stats.transferFee.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Dynamic Group Financial Summaries Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -1252,6 +1474,80 @@ export default function FinanceDashboard({
                 <span className="text-xs font-black bg-neutral-100 text-neutral-900 px-2.5 py-0.5 rounded-full">
                   {operations.length} عملية مبيعات مسجلة
                 </span>
+              </div>
+            </div>
+
+            {/* Quick search & filter panel */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-100/70" dir="rtl">
+              {/* Search Bar Input */}
+              <div className="relative w-full md:max-w-md">
+                <span className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 text-neutral-400" />
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="البحث بالرمز، الاسم، الممول، دافع السلفة..."
+                  className="w-full h-10 pr-9 pl-4 bg-neutral-50 border border-neutral-200 focus:border-neutral-950 focus:bg-white rounded-xl text-xs font-bold outline-hidden transition-all text-neutral-900 placeholder-neutral-400"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400 hover:text-neutral-900 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Tab Filters */}
+              <div className="flex items-center gap-1 bg-neutral-50 p-1 rounded-xl border border-neutral-200/50 w-full md:w-auto overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setFilterGroup("all")}
+                  className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filterGroup === "all"
+                      ? "bg-white text-neutral-950 shadow-xs border border-neutral-200/20"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  كافة الفئات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterGroup("major")}
+                  className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filterGroup === "major"
+                      ? "bg-white text-neutral-950 shadow-xs border border-neutral-200/20"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  كبرى (≥ 3,000)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterGroup("minor")}
+                  className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filterGroup === "minor"
+                      ? "bg-white text-neutral-950 shadow-xs border border-neutral-200/20"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  صغرى (&lt; 3,000)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterGroup("custom")}
+                  className={`flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filterGroup === "custom"
+                      ? "bg-white text-neutral-950 shadow-xs border border-neutral-200/20"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  مخصصة
+                </button>
               </div>
             </div>
           </div>
@@ -1641,6 +1937,26 @@ export default function FinanceDashboard({
                   <div className="flex justify-between items-center py-1.5 border-b border-neutral-50">
                     <span className="text-neutral-400">تاريخ تسجيل العقد المالي الفوري</span>
                     <span className="text-neutral-500 font-bold text-[10.5px]">{new Date(selectedOp.date || (selectedOp as any).createdAt).toLocaleString("ar-SA-u-nu-latn")}</span>
+                  </div>
+
+                  {/* Partner contributions detail section */}
+                  <div className="bg-neutral-55 p-3 rounded-xl border border-neutral-200/50 space-y-1.5 mt-2 bg-neutral-50/70">
+                    <p className="text-[9.5px] font-black text-neutral-800 border-b border-neutral-200/50 pb-1 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-neutral-900 rounded-full" />
+                      تفاصيل تمويل الشركاء لهذه العملية:
+                    </p>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-neutral-400">دافع سلفة العميل:</span>
+                      <span className="font-extrabold text-neutral-900 bg-neutral-200/50 px-2 py-0.5 rounded">{selectedOp.advancePaidBy || "كلنا"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-neutral-400">دافع الدفعة الأولى:</span>
+                      <span className="font-extrabold text-neutral-900 bg-neutral-200/50 px-2 py-0.5 rounded">{selectedOp.downPaymentPaidBy || "العميل"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-neutral-400">تحمل رسوم التحويل:</span>
+                      <span className="font-extrabold text-neutral-900 bg-neutral-200/50 px-2 py-0.5 rounded">{selectedOp.transferFeePaidBy || "كلنا"}</span>
+                    </div>
                   </div>
                 </div>
 

@@ -38,7 +38,7 @@ const ARABIC_MONTHS = [
 ];
 
 export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProps) {
-  const [selectedMetric, setSelectedMetric] = useState<"sales" | "profit">("sales");
+  const [selectedMetric, setSelectedMetric] = useState<"sales" | "profit">("profit");
   
   // Dynamically generate months list from operations
   const availableMonths = useMemo(() => {
@@ -125,7 +125,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
       });
 
       if (opsOnDay.length > 0) {
-        const sales = opsOnDay.reduce((sum, op) => sum + (Number(op.packageAmount) || 0), 0);
+        const sales = opsOnDay.reduce((sum, op) => sum + (Number(op.totalInstallmentAmount) || 0), 0);
         const profit = opsOnDay.reduce((sum, op) => sum + getOperationProfit(op), 0);
         const orders = opsOnDay.length;
         const averageOrder = orders > 0 ? Math.round(sales / orders) : 0;
@@ -263,7 +263,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
-                <span>إجمالي المبيعات</span>
+                <span>إجمالي مبيعات التقسيط</span>
               </button>
               <button
                 type="button"
@@ -275,7 +275,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
                 }`}
               >
                 <Coins className="w-4 h-4" />
-                <span>صافي الأرباح</span>
+                <span>صافي أرباح التاجر</span>
               </button>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
 
         <div className="space-y-2 relative z-10">
           <span className="text-xs font-bold text-neutral-400 block">
-            {selectedMetric === "sales" ? "إجمالي قيمة المبيعات خلال الشهر" : "إجمالي صافي الأرباح المحققة خلال الشهر"}
+            {selectedMetric === "sales" ? "إجمالي قيمة مبيعات التقسيط خلال الشهر" : "إجمالي صافي أرباح التاجر المحققة خلال الشهر"}
           </span>
           <div className="flex items-baseline gap-2">
             <span className={`text-3xl lg:text-4xl font-black tracking-tight ${
@@ -323,7 +323,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
           </div>
           <div className="bg-neutral-50 border border-neutral-200/50 p-4 rounded-2xl min-w-[140px]">
             <span className="block text-[10px] font-black text-neutral-400 mb-1">أيام النشاط الفعلي</span>
-            <span className="text-lg font-black text-neutral-800">{aggregateStats.activeDays} يوم من ٣١</span>
+            <span className="text-lg font-black text-neutral-800">{aggregateStats.activeDays} يوم من 31</span>
           </div>
         </div>
 
@@ -496,7 +496,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
               <div>
                 <span className="block text-[10px] font-black text-neutral-400">المؤشر الحالي</span>
                 <span className="text-xs font-black text-neutral-800">
-                  {selectedMetric === "sales" ? "إجمالي المبيعات" : "صافي الأرباح"}
+                  {selectedMetric === "sales" ? "إجمالي مبيعات التقسيط" : "صافي أرباح التاجر"}
                 </span>
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
                 <Coins className="w-5 h-5" />
               </div>
               <div>
-                <span className="block text-[10px] font-black text-neutral-400">إجمالي مبيعات اليوم</span>
+                <span className="block text-[10px] font-black text-neutral-400">إجمالي قيمة مبيعات اليوم</span>
                 <span className="text-xs font-black text-neutral-800">
                   {selectedDayData.sales.toLocaleString()} ريال
                 </span>
@@ -536,7 +536,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
               <span className="text-neutral-900 font-black">{selectedDayData.averageOrder.toLocaleString()} ريال</span>
             </div>
             <div className="flex items-center justify-between text-xs font-bold pt-2 sm:pt-0 pr-0 sm:pr-4">
-              <span className="text-neutral-400">صافي أرباح اليوم المحققة</span>
+              <span className="text-neutral-400">صافي أرباح التاجر المحققة لليوم</span>
               <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString()} ريال</span>
             </div>
           </div>

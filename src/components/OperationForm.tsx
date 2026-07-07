@@ -46,6 +46,11 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
   const [downPayment, setDownPayment] = useState<string>("");
   const [commissionFee, setCommissionFee] = useState<string>("");
 
+  // Partner Tracking State variables
+  const [advancePaidBy, setAdvancePaidBy] = useState<"كلنا" | "نواف" | "عبدالله">("كلنا");
+  const [downPaymentPaidBy, setDownPaymentPaidBy] = useState<"العميل" | "كلنا" | "نواف" | "عبدالله">("العميل");
+  const [transferFeePaidBy, setTransferFeePaidBy] = useState<"كلنا" | "نواف" | "عبدالله">("كلنا");
+
   // 4. Date State (Mandatory)
   const [operationDate, setOperationDate] = useState<string>("");
 
@@ -158,7 +163,10 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
       provider,
       status: "مكتمل",
       totalInstallmentAmount,
-      monthlyInstallment
+      monthlyInstallment,
+      advancePaidBy,
+      downPaymentPaidBy,
+      transferFeePaidBy
     };
 
     try {
@@ -175,6 +183,9 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
           setCustomPackageAmount("");
           setCustomTotalInstallmentAmount("");
           setOperationDate("");
+          setAdvancePaidBy("كلنا");
+          setDownPaymentPaidBy("العميل");
+          setTransferFeePaidBy("كلنا");
         }, 500); 
       } else {
         setErrorMessage("فشل في إكمال وتسجيل العملية. يرجى التحقق من الخادم.");
@@ -301,7 +312,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">١</span>
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">1</span>
               <h3 className="text-xs font-black text-neutral-900">بوابة التمويل والتقسيط</h3>
             </div>
             <span className="text-[10px] text-neutral-400 font-bold">بوابات التقسيط المعتمدة بالمشروع</span>
@@ -350,7 +361,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-50 pb-3 gap-2">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">٢</span>
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">2</span>
               <h3 className="text-xs font-black text-neutral-900">اختيار الفئة التجارية</h3>
             </div>
             <p className="text-[10px] text-neutral-400 font-bold">حدد من الباقات التجارية الجاهزة أو أنشئ قيمة يدوية</p>
@@ -542,13 +553,43 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               </div>
             </motion.div>
           )}
+
+          {/* Partner selection section for "من دفع سلفة العميل" */}
+          <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                من دفع سلفة العميل؟ (الكاش)
+              </span>
+              <span className="text-[9px] text-neutral-400 font-bold">يحدد الجهة الممولة لمبلغ التسييل</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {(["كلنا", "نواف", "عبدالله"] as const).map((payer) => {
+                const isSelected = advancePaidBy === payer;
+                return (
+                  <button
+                    key={payer}
+                    type="button"
+                    onClick={() => setAdvancePaidBy(payer)}
+                    className={`py-2 px-3 rounded-xl border text-center text-xs font-black transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                        : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                    }`}
+                  >
+                    {payer}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Step 3: Down Payment - With Increments & Presets */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">٣</span>
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">3</span>
               <h3 className="text-xs font-black text-neutral-900">خصم الدفعة الأولى من التمويل</h3>
             </div>
             <span className="text-[10px] text-neutral-400 font-bold">يتحملها العميل ولا تخصم من أرباحك الصافية</span>
@@ -618,16 +659,46 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               20% من قيمة الكاش
             </button>
           </div>
+
+          {/* Partner selection section for "من دفع الدفعة الأولى" */}
+          <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
+                <Banknote className="w-3.5 h-3.5 text-neutral-500" />
+                من دفع الدفعة الأولى؟
+              </span>
+              <span className="text-[9px] text-neutral-400 font-bold">الافتراضي "العميل" (لا يدخل برأس مال الشركاء)</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(["العميل", "كلنا", "نواف", "عبدالله"] as const).map((payer) => {
+                const isSelected = downPaymentPaidBy === payer;
+                return (
+                  <button
+                    key={payer}
+                    type="button"
+                    onClick={() => setDownPaymentPaidBy(payer)}
+                    className={`py-2 px-1.5 rounded-xl border text-center text-[10.5px] font-black transition-all cursor-pointer truncate ${
+                      isSelected
+                        ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                        : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                    }`}
+                  >
+                    {payer}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Step 4: Commission Fee - With Increments & Presets */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">٤</span>
-              <h3 className="text-xs font-black text-neutral-900">رسوم العمولة والتكلفة الإدارية</h3>
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">4</span>
+              <h3 className="text-xs font-black text-neutral-900">رسوم التحويل والعمولة</h3>
             </div>
-            <span className="text-[10px] text-neutral-400 font-bold">تسجيل أي عمولات إضافية خاصة بالوسيط</span>
+            <span className="text-[10px] text-neutral-400 font-bold">تسجيل أي عمولات أو رسوم تحويل إضافية</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -699,13 +770,43 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               150 ر.س
             </button>
           </div>
+
+          {/* Partner selection section for "من دفع رسوم التحويل والعمولة" */}
+          <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-neutral-500" />
+                من دفع رسوم التحويل والعمولة؟
+              </span>
+              <span className="text-[9px] text-neutral-400 font-bold">يحدد من يتحمل الرسوم الإدارية أو التحويل</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {(["كلنا", "نواف", "عبدالله"] as const).map((payer) => {
+                const isSelected = transferFeePaidBy === payer;
+                return (
+                  <button
+                    key={payer}
+                    type="button"
+                    onClick={() => setTransferFeePaidBy(payer)}
+                    className={`py-2 px-3 rounded-xl border text-center text-xs font-black transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                        : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                    }`}
+                  >
+                    {payer}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Step 5: Transaction Date - REQUIRED */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">٥</span>
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">5</span>
               <h3 className="text-xs font-black text-neutral-900">تاريخ العملية</h3>
             </div>
             <span className="text-[10px] text-red-500 font-black flex items-center gap-1">

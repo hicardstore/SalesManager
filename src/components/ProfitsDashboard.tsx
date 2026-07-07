@@ -495,8 +495,8 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                   </>
                 ) : (
                   <>
-                    <span>١ {ARABIC_MONTHS[targetMonthIdx]}</span>
-                    <span>١٥ {ARABIC_MONTHS[targetMonthIdx]}</span>
+                    <span>1 {ARABIC_MONTHS[targetMonthIdx]}</span>
+                    <span>15 {ARABIC_MONTHS[targetMonthIdx]}</span>
                     <span>{dailyProfits.length} {ARABIC_MONTHS[targetMonthIdx]}</span>
                   </>
                 )}
