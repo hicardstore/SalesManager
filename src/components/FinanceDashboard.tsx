@@ -498,6 +498,9 @@ export default function FinanceDashboard({
     }));
 
     if (result.length === 0) {
+      if (operations.length > 0 || dateFilter !== "all") {
+        return [];
+      }
       return [
         { date: "1 يوليو", sales: 12000, profit: 4200, count: 1, isReal: false },
         { date: "7 يوليو", sales: 18500, profit: 6475, count: 2, isReal: false },
@@ -507,7 +510,7 @@ export default function FinanceDashboard({
       ];
     } else if (result.length < 5) {
       const pad = [
-        { date: "البداية", sales: 3000, profit: 1050, count: 0, isReal: false },
+        { date: "البداية", sales: Math.max(0, result[0].sales * 0.5), profit: Math.max(0, result[0].profit * 0.5), count: 0, isReal: false },
         ...result,
         { date: "النهاية", sales: result[result.length - 1].sales * 1.2, profit: result[result.length - 1].profit * 1.2, count: 0, isReal: false }
       ];
@@ -515,7 +518,7 @@ export default function FinanceDashboard({
     }
 
     return result;
-  }, [filteredOperations, activeProject]);
+  }, [filteredOperations, activeProject, operations, dateFilter]);
 
   const activeMetricMax = React.useMemo(() => {
     const vals = trendData.map(d => trendMetric === "sales" ? d.sales : d.profit);
@@ -748,13 +751,13 @@ export default function FinanceDashboard({
             <div className="space-y-0.5">
               <span className="text-[9px] text-neutral-400 font-bold block">إجمالي الفترة</span>
               <span className="text-xs font-black text-neutral-900 font-mono">
-                {chartStats.total.toLocaleString("en-US", { maximumFractionDigits: 0 })} ر.س
+                {chartStats.total.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 })} <span className="text-[10px] text-neutral-400 font-sans font-normal">ر.س</span>
               </span>
             </div>
             <div className="space-y-0.5 border-r border-neutral-200/60 pr-3">
               <span className="text-[9px] text-neutral-400 font-bold block">أعلى ذروة</span>
               <span className="text-xs font-black text-neutral-900 font-mono">
-                {chartStats.peak.toLocaleString("en-US", { maximumFractionDigits: 0 })} ر.س
+                {chartStats.peak.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 })} <span className="text-[10px] text-neutral-400 font-sans font-normal">ر.س</span>
               </span>
             </div>
             <div className="space-y-0.5 border-r border-neutral-200/60 pr-3">
@@ -776,6 +779,13 @@ export default function FinanceDashboard({
 
           {/* Interactive SVG Graph Area */}
           <div className="relative h-60 w-full pt-4">
+            {trendData.length === 0 && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[0.5px] rounded-2xl">
+                <span className="text-xs font-black text-neutral-500">لا توجد مبيعات مسجلة في هذه الفترة الزمنية</span>
+                <p className="text-[10px] text-neutral-400 mt-1">يرجى تسجيل عملية مبيعات جديدة لتحديث المنحنى التفاعلي</p>
+              </div>
+            )}
+
             {/* Glassmorphic Custom Floating Tooltip */}
             {hoveredPointIdx !== null && trendData[hoveredPointIdx] && (() => {
               const totalPoints = trendData.length;
@@ -809,10 +819,10 @@ export default function FinanceDashboard({
                       </span>
                     </div>
                     <p className="text-xs font-black text-neutral-900 font-mono">
-                      {(trendMetric === "sales" ? activeItem.sales : activeItem.profit).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                      {(trendMetric === "sales" ? activeItem.sales : activeItem.profit).toLocaleString("en-US", { useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: 0 })} <span className="text-[10px] text-neutral-400 font-sans font-normal">ر.س</span>
                     </p>
                     <div className="text-[9.5px] font-bold text-neutral-500">
-                      {activeItem.count} عملية مبيعات مسجلة
+                      {activeItem.count.toLocaleString("en-US", { useGrouping: false })} عملية مبيعات مسجلة
                     </div>
                   </div>
                 </div>
@@ -848,7 +858,7 @@ export default function FinanceDashboard({
                       textAnchor="end" 
                       className="text-[9px] font-mono fill-neutral-400 font-bold"
                     >
-                      {Math.round((1 - ratio) * activeMetricMax).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                      {Math.round((1 - ratio) * activeMetricMax).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 })}
                     </text>
                   </g>
                 );

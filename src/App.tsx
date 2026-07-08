@@ -315,10 +315,29 @@ function MainApp() {
       const fetchedOps: Operation[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
+        
+        // Robustly parse the date field or createdAt timestamp
+        let resolvedDate: string;
+        if (data.date) {
+          resolvedDate = data.date;
+        } else if (data.createdAt) {
+          if (typeof data.createdAt.toDate === "function") {
+            resolvedDate = data.createdAt.toDate().toISOString();
+          } else if (typeof data.createdAt.seconds === "number") {
+            resolvedDate = new Date(data.createdAt.seconds * 1000).toISOString();
+          } else {
+            const parsed = new Date(data.createdAt);
+            resolvedDate = !isNaN(parsed.getTime()) ? parsed.toISOString() : "2000-01-01T00:00:00.000Z";
+          }
+        } else {
+          // Default historical baseline for dateless legacy documents so they don't dynamically pollute today's filter
+          resolvedDate = "2000-01-01T00:00:00.000Z";
+        }
+
         fetchedOps.push({
           ...(data as any),
           id: doc.id,
-          date: data.date || (data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString())
+          date: resolvedDate
         } as Operation);
       });
       // Sort client-side to protect indexing constraints

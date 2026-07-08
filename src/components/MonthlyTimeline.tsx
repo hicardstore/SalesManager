@@ -84,7 +84,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
     const calendarSystem = activeProject?.calendarSystem || "gregorian";
     const locale = calendarSystem === "hijri" 
       ? "ar-SA-u-ca-islamic-umalqura-nu-latn" 
-      : "ar-SA-u-nu-latn";
+      : "ar-SA-u-ca-gregory-nu-latn";
     return date.toLocaleString(locale, { month: "long", year: "numeric" });
   };
 

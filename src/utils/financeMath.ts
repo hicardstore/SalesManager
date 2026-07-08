@@ -144,7 +144,7 @@ export function formatDate(
   // Use Arabic locale with Western/English numerals (latn) as requested ("الأرقام الانجليزية فقط")
   const locale = calendarSystem === "hijri" 
     ? "ar-SA-u-ca-islamic-umalqura-nu-latn" 
-    : "ar-SA-u-nu-latn";
+    : "ar-SA-u-ca-gregory-nu-latn";
 
   const defaultOptions: Intl.DateTimeFormatOptions = options || {
     year: "numeric",
