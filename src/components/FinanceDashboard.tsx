@@ -1592,9 +1592,21 @@ export default function FinanceDashboard({
                         className="hover:bg-neutral-50/70 transition-all cursor-pointer group/row"
                       >
                         <td className="p-4">
-                          <span className="font-mono bg-neutral-100 text-neutral-900 font-extrabold px-2.5 py-1 rounded-lg text-[10.5px] border border-neutral-250/10 group-hover/row:bg-neutral-200 transition-colors">
-                            {op.id}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start justify-start">
+                            <span className="font-mono bg-neutral-100 text-neutral-900 font-extrabold px-2.5 py-1 rounded-lg text-[10.5px] border border-neutral-250/10 group-hover/row:bg-neutral-200 transition-colors w-max">
+                              {op.id}
+                            </span>
+                            <span className="text-[9.5px] text-neutral-400 font-bold block whitespace-nowrap">
+                              {new Date(op.date || (op as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true
+                              })}
+                            </span>
+                          </div>
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2.5">
@@ -1671,9 +1683,21 @@ export default function FinanceDashboard({
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-neutral-950 animate-pulse"></div>
 
                     <div className="flex justify-between items-center pr-1.5">
-                      <span className="bg-neutral-100 text-neutral-900 font-extrabold px-2 py-0.5 rounded text-[10.5px]">
-                        {op.id}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start justify-start">
+                        <span className="bg-neutral-100 text-neutral-900 font-extrabold px-2 py-0.5 rounded text-[10.5px] w-max">
+                          {op.id}
+                        </span>
+                        <span className="text-[9px] text-neutral-400 font-bold block">
+                          {new Date(op.date || (op as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                          })}
+                        </span>
+                      </div>
                       <span className={`px-2 py-0.5 rounded text-[9.5px] font-black border ${badgeStyles.bg}`}>
                         {op.provider}
                       </span>
@@ -1935,8 +1959,17 @@ export default function FinanceDashboard({
                   </div>
 
                   <div className="flex justify-between items-center py-1.5 border-b border-neutral-50">
-                    <span className="text-neutral-400">تاريخ تسجيل العقد المالي الفوري</span>
-                    <span className="text-neutral-500 font-bold text-[10.5px]">{new Date(selectedOp.date || (selectedOp as any).createdAt).toLocaleString("ar-SA-u-nu-latn")}</span>
+                    <span className="text-neutral-400">تاريخ ووقت تسجيل العملية</span>
+                    <span className="text-neutral-500 font-bold text-[10.5px]">
+                      {new Date(selectedOp.date || (selectedOp as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })}
+                    </span>
                   </div>
 
                   {/* Partner contributions detail section */}

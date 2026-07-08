@@ -143,7 +143,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
     }
 
     if (!operationDate) {
-      setErrorMessage("يرجى تحديد تاريخ العملية لإتمام التسجيل المالي.");
+      setErrorMessage("يرجى تحديد تاريخ ووقت العملية لإتمام التسجيل المالي.");
       return;
     }
 
@@ -802,16 +802,16 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
           </div>
         </div>
 
-        {/* Step 5: Transaction Date - REQUIRED */}
+        {/* Step 5: Transaction Date & Time - REQUIRED */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">5</span>
-              <h3 className="text-xs font-black text-neutral-900">تاريخ العملية</h3>
+              <h3 className="text-xs font-black text-neutral-900">تاريخ ووقت العملية</h3>
             </div>
             <span className="text-[10px] text-red-500 font-black flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-              تحديد التاريخ إلزامي *
+              تحديد التاريخ والوقت إلزامي *
             </span>
           </div>
 
@@ -820,7 +820,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
               <Calendar className="w-4 h-4" />
             </div>
             <input
-              type="date"
+              type="datetime-local"
               required
               value={operationDate}
               onChange={(e) => setOperationDate(e.target.value)}
@@ -834,24 +834,27 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
             <button
               type="button"
               onClick={() => {
-                const today = new Date().toISOString().split("T")[0];
-                setOperationDate(today);
+                const now = new Date();
+                const offset = now.getTimezoneOffset() * 60000;
+                const localIso = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+                setOperationDate(localIso);
               }}
               className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
-              اليوم
+              اليوم بالوقت الحالي
             </button>
             <button
               type="button"
               onClick={() => {
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split("T")[0];
-                setOperationDate(yesterdayStr);
+                const offset = yesterday.getTimezoneOffset() * 60000;
+                const localIso = new Date(yesterday.getTime() - offset).toISOString().slice(0, 16);
+                setOperationDate(localIso);
               }}
               className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
-              أمس
+              أمس بنفس الوقت
             </button>
           </div>
         </div>
