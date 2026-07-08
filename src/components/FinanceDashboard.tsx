@@ -467,7 +467,7 @@ export default function FinanceDashboard({
 
   // Trend Data for visual SVG chart
   const trendData = React.useMemo(() => {
-    const sortedOps = [...filteredByDate].sort((a, b) => {
+    const sortedOps = [...filteredOperations].sort((a, b) => {
       const dateA = new Date(a.date || (a as any).createdAt).getTime();
       const dateB = new Date(b.date || (b as any).createdAt).getTime();
       return dateA - dateB;
@@ -476,7 +476,7 @@ export default function FinanceDashboard({
     const grouped: { [key: string]: { sales: number; profit: number; count: number } } = {};
     sortedOps.forEach(op => {
       const d = new Date(op.date || (op as any).createdAt);
-      const dateStr = d.toLocaleDateString("ar-SA-u-nu-latn", {
+      const dateStr = formatDate(d, activeProject, {
         month: "short",
         day: "numeric",
       });
@@ -515,7 +515,7 @@ export default function FinanceDashboard({
     }
 
     return result;
-  }, [filteredByDate]);
+  }, [filteredOperations, activeProject]);
 
   const activeMetricMax = React.useMemo(() => {
     const vals = trendData.map(d => trendMetric === "sales" ? d.sales : d.profit);
@@ -569,7 +569,7 @@ export default function FinanceDashboard({
       "إمكان": { sales: 0, profit: 0, count: 0, fees: 0 },
     };
 
-    filteredByDate.forEach(op => {
+    filteredOperations.forEach(op => {
       const p = op.provider;
       if (stats[p]) {
         stats[p].sales += op.packageAmount;
@@ -589,7 +589,7 @@ export default function FinanceDashboard({
       fees: stats[key].fees,
       share: Math.round((stats[key].sales / totalSalesAll) * 100),
     }));
-  }, [filteredByDate]);
+  }, [filteredOperations]);
 
   // Sparkline builder helper
   const getSparklinePath = (metricFn: (op: Operation) => number, width = 80, height = 32) => {

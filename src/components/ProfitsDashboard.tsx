@@ -130,11 +130,10 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
   // Keep selectedMonthYear in sync with preference switches
   useEffect(() => {
     const currentLabel = getLabelForDate(new Date());
-    const saved = localStorage.getItem("pd_selected_month_year");
-    if (!saved) {
+    if (selectedMonthYear !== "الكل" && !availableMonths.includes(selectedMonthYear)) {
       setSelectedMonthYear(currentLabel);
     }
-  }, [activeProject?.calendarSystem]);
+  }, [activeProject?.calendarSystem, availableMonths, selectedMonthYear]);
 
   // Handle month shifting
   const handlePrevMonth = () => {

@@ -169,15 +169,12 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
   // Keep selectedMonthYear and selectedDay in sync with preference switches
   useEffect(() => {
     const currentLabel = getLabelForDate(new Date());
-    // Only update if no previous saved selection or we're on first load
-    const savedMonth = localStorage.getItem("mt_selected_month_year");
-    if (!savedMonth) {
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+
+    if (!availableMonths.includes(selectedMonthYear)) {
       setSelectedMonthYear(currentLabel);
-    }
-    
-    const savedDay = localStorage.getItem("mt_selected_day");
-    if (!savedDay) {
-      const calendarSystem = activeProject?.calendarSystem || "gregorian";
+      
+      // Also reset selected day to today
       if (calendarSystem === "hijri") {
         try {
           const parts = new Date().toLocaleDateString("en-US-u-ca-islamic-umalqura", { day: "numeric" });
@@ -188,8 +185,13 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
       } else {
         setSelectedDay(new Date().getDate());
       }
+    } else {
+      // Validate bounds of selectedDay
+      if (calendarSystem === "hijri" && selectedDay > 30) {
+        setSelectedDay(30);
+      }
     }
-  }, [activeProject?.calendarSystem]);
+  }, [activeProject?.calendarSystem, availableMonths, selectedMonthYear]);
 
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
