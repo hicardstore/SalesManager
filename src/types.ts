@@ -22,6 +22,7 @@ export interface ProjectWorkspace {
   customRates?: Record<string, number>;
   numberSystem?: string;
   currencySymbol?: string;
+  calendarSystem?: string;
 }
 
 export type OperationStatus = "مكتمل" | "قيد المراجعة";

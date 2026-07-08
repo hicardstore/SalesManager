@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Operation, InstallmentProvider } from "../types";
 import { 
   getOperationFee as getOperationFeeCentral, 
-  getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral 
+  getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral,
+  formatDate
 } from "../utils/financeMath";
 import { 
   TrendingUp, 
@@ -26,74 +27,114 @@ import { motion, AnimatePresence } from "motion/react";
 
 interface ProfitsDashboardProps {
   operations: Operation[];
+  activeProject?: any;
 }
-
-const ARABIC_MONTHS = [
-  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", 
-  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
-];
 
 const cleanClientName = (name: string): string => {
   if (!name) return "";
   return name.replace(/[0-9]\uFE0F?\u20E3/g, "").replace(/\s+/g, " ").trim();
 };
 
-export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
-  // Dynamically generate list of months from available operations + current month
-  const availableMonths = useMemo(() => {
-    const monthsSet = new Set<string>();
-    
-    // Always add the current month
-    const now = new Date();
-    const currentMonthLabel = `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    monthsSet.add(currentMonthLabel);
+function getDaysInMonthLabel(sampleDate: Date, calendarSystem: string, label: string): { dayNum: number; date: Date }[] {
+  if (calendarSystem !== "hijri") {
+    const year = sampleDate.getFullYear();
+    const month = sampleDate.getMonth();
+    const daysCount = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysCount }, (_, i) => {
+      const dayNum = i + 1;
+      return { dayNum, date: new Date(year, month, dayNum) };
+    });
+  }
 
-    // Add months from operations
+  let current = new Date(sampleDate);
+  const getLabel = (d: Date) => d.toLocaleString("ar-SA-u-ca-islamic-umalqura-nu-latn", { month: "long", year: "numeric" });
+  
+  for (let i = 0; i < 35; i++) {
+    const prev = new Date(current);
+    prev.setDate(prev.getDate() - 1);
+    if (getLabel(prev) !== label) {
+      break;
+    }
+    current = prev;
+  }
+  
+  const days: { dayNum: number; date: Date }[] = [];
+  let dayNum = 1;
+  while (getLabel(current) === label && dayNum <= 30) {
+    days.push({ dayNum, date: new Date(current) });
+    current.setDate(current.getDate() + 1);
+    dayNum++;
+  }
+  return days;
+}
+
+export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboardProps) {
+  // Helper to construct dynamic labels
+  const getLabelForDate = (date: Date) => {
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+    const locale = calendarSystem === "hijri" 
+      ? "ar-SA-u-ca-islamic-umalqura-nu-latn" 
+      : "ar-SA-u-nu-latn";
+    return date.toLocaleString(locale, { month: "long", year: "numeric" });
+  };
+
+  // Map each unique month label to a sample date of that month
+  const monthLabelMap = useMemo(() => {
+    const mapping: { [label: string]: Date } = {};
+    const now = new Date();
+    
+    mapping[getLabelForDate(now)] = now;
+
     operations.forEach(op => {
       if (op.date) {
         const d = new Date(op.date);
         if (!isNaN(d.getTime())) {
-          const label = `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-          monthsSet.add(label);
+          const lbl = getLabelForDate(d);
+          if (!mapping[lbl]) {
+            mapping[lbl] = d;
+          }
         }
       }
     });
 
-    // Sort months with newest first
-    const sorted = Array.from(monthsSet).sort((a, b) => {
-      const partsA = a.split(" ");
-      const partsB = b.split(" ");
-      const idxA = ARABIC_MONTHS.indexOf(partsA[0]);
-      const idxB = ARABIC_MONTHS.indexOf(partsB[0]);
-      const yearA = parseInt(partsA[1]) || 0;
-      const yearB = parseInt(partsB[1]) || 0;
-      
-      if (yearA !== yearB) return yearB - yearA;
-      return idxB - idxA;
-    });
+    return mapping;
+  }, [operations, activeProject?.calendarSystem]);
 
+  // Dynamically generate list of months from available operations + current month
+  const availableMonths = useMemo(() => {
+    const sorted = Object.keys(monthLabelMap).sort((a, b) => {
+      const dateA = monthLabelMap[a];
+      const dateB = monthLabelMap[b];
+      return dateB.getTime() - dateA.getTime();
+    });
     return ["الكل", ...sorted];
-  }, [operations]);
+  }, [monthLabelMap]);
 
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>(() => {
-    const now = new Date();
-    return `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    try {
+      const saved = localStorage.getItem("pd_selected_month_year");
+      if (saved) return saved;
+    } catch (e) {}
+    return getLabelForDate(new Date());
   });
 
   const [isProfitsExpanded, setIsProfitsExpanded] = useState<boolean>(false);
 
-  // Calculate month and year index
-  const { targetMonthIdx, targetYear } = useMemo(() => {
-    if (selectedMonthYear === "الكل") {
-      return { targetMonthIdx: -1, targetYear: -1 };
-    }
-    const parts = selectedMonthYear.split(" ");
-    const monthStr = parts[0];
-    const yearStr = parts[1];
-    const monthIdx = ARABIC_MONTHS.indexOf(monthStr) !== -1 ? ARABIC_MONTHS.indexOf(monthStr) : new Date().getMonth();
-    const year = parseInt(yearStr) || new Date().getFullYear();
-    return { targetMonthIdx: monthIdx, targetYear: year };
+  // Sync selection to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("pd_selected_month_year", selectedMonthYear);
+    } catch (e) {}
   }, [selectedMonthYear]);
+
+  // Keep selectedMonthYear in sync with preference switches
+  useEffect(() => {
+    const currentLabel = getLabelForDate(new Date());
+    const saved = localStorage.getItem("pd_selected_month_year");
+    if (!saved) {
+      setSelectedMonthYear(currentLabel);
+    }
+  }, [activeProject?.calendarSystem]);
 
   // Handle month shifting
   const handlePrevMonth = () => {
@@ -125,11 +166,12 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
       return operations;
     }
     return operations.filter(op => {
+      if (!op.date) return false;
       const d = new Date(op.date);
       if (isNaN(d.getTime())) return false;
-      return d.getMonth() === targetMonthIdx && d.getFullYear() === targetYear;
+      return getLabelForDate(d) === selectedMonthYear;
     });
-  }, [operations, selectedMonthYear, targetMonthIdx, targetYear]);
+  }, [operations, selectedMonthYear, monthLabelMap, activeProject?.calendarSystem]);
 
   // Aggregate monthly stats
   const stats = useMemo(() => {
@@ -189,6 +231,8 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
 
   // Daily profits inside month for SVG visualization
   const dailyProfits = useMemo(() => {
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+
     if (selectedMonthYear === "الكل") {
       // Group by month label from availableMonths (excluding "الكل")
       // To keep newest at the right on the chart, let's reverse the availableMonths (excluding "الكل")
@@ -197,19 +241,14 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
       if (months.length === 0) return [];
       
       return months.map((m, index) => {
-        const parts = m.split(" ");
-        const mStr = parts[0];
-        const yStr = parts[1];
-        const mIdx = ARABIC_MONTHS.indexOf(mStr);
-        const yr = parseInt(yStr) || 0;
-        
         let profit = 0;
         let sales = 0;
         let orders = 0;
         
         operations.forEach(op => {
+          if (!op.date) return;
           const d = new Date(op.date);
-          if (!isNaN(d.getTime()) && d.getMonth() === mIdx && d.getFullYear() === yr) {
+          if (!isNaN(d.getTime()) && getLabelForDate(d) === m) {
             profit += getOperationProfit(op);
             sales += op.packageAmount || 0;
             orders += 1;
@@ -226,26 +265,48 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
       });
     }
 
-    const daysInMonth = new Date(targetYear, targetMonthIdx + 1, 0).getDate();
-    const daysArray = Array.from({ length: daysInMonth }, (_, i) => ({
-      day: i + 1,
-      label: `${i + 1}`,
-      profit: 0,
-      sales: 0,
-      orders: 0
-    }));
+    const sampleDate = monthLabelMap[selectedMonthYear] || new Date();
+    const daysList = getDaysInMonthLabel(sampleDate, calendarSystem, selectedMonthYear);
 
-    monthlyOperations.forEach(op => {
-      const opDay = new Date(op.date).getDate();
-      if (opDay >= 1 && opDay <= daysInMonth) {
-        daysArray[opDay - 1].profit += getOperationProfit(op);
-        daysArray[opDay - 1].sales += op.packageAmount || 0;
-        daysArray[opDay - 1].orders += 1;
-      }
+    const daysArray = daysList.map(({ dayNum, date }) => {
+      let profit = 0;
+      let sales = 0;
+      let orders = 0;
+
+      monthlyOperations.forEach(op => {
+        if (!op.date) return;
+        const d = new Date(op.date);
+        
+        let match = false;
+        if (calendarSystem === "hijri") {
+          try {
+            const hDayStr = d.toLocaleDateString("en-US-u-ca-islamic-umalqura", { day: "numeric" });
+            match = parseInt(hDayStr) === dayNum;
+          } catch (e) {
+            match = d.getDate() === dayNum;
+          }
+        } else {
+          match = d.getDate() === dayNum;
+        }
+
+        if (match) {
+          profit += getOperationProfit(op);
+          sales += op.packageAmount || 0;
+          orders += 1;
+        }
+      });
+
+      return {
+        day: dayNum,
+        label: `${dayNum}`,
+        profit,
+        sales,
+        orders
+      };
     });
 
     return daysArray;
-  }, [operations, monthlyOperations, targetMonthIdx, targetYear, selectedMonthYear, availableMonths]);
+  }, [operations, monthlyOperations, selectedMonthYear, availableMonths, monthLabelMap, activeProject?.calendarSystem]);
 
   // SVG dimensions & path builders
   const maxDailyProfit = useMemo(() => {
@@ -495,9 +556,9 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                   </>
                 ) : (
                   <>
-                    <span>1 {ARABIC_MONTHS[targetMonthIdx]}</span>
-                    <span>15 {ARABIC_MONTHS[targetMonthIdx]}</span>
-                    <span>{dailyProfits.length} {ARABIC_MONTHS[targetMonthIdx]}</span>
+                    <span>1 {selectedMonthYear.split(" ")[0]}</span>
+                    <span>15 {selectedMonthYear.split(" ")[0]}</span>
+                    <span>{dailyProfits.length} {selectedMonthYear.split(" ")[0]}</span>
                   </>
                 )}
               </div>
@@ -588,7 +649,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                               {cleanedName || "عملية بيع"}
                             </div>
                             <div className="text-[10px] text-neutral-450 font-medium">
-                              {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
+                              {formatDate(op.date, activeProject, { day: "numeric", month: "long" })}
                             </div>
                           </div>
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${
@@ -667,7 +728,7 @@ export function ProfitsDashboard({ operations }: ProfitsDashboardProps) {
                             <td className="py-4 px-4">
                               <div className="font-black text-neutral-900 text-[13px]">{cleanedName}</div>
                               <div className="text-[10px] text-neutral-450 mt-0.5 font-bold">
-                                {new Date(op.date).toLocaleDateString("ar-SA-u-nu-latn", { day: "numeric", month: "long" })}
+                                {formatDate(op.date, activeProject, { day: "numeric", month: "long" })}
                               </div>
                             </td>
                             <td className="py-4 px-4">

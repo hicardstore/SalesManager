@@ -62,8 +62,37 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 function MainApp() {
   const { user, logout, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "profits" | "settings">("dashboard");
-  const [dashboardSubTab, setDashboardSubTab] = useState<"overview" | "timeline">("overview");
+  const [activeTab, setActiveTab] = useState<"create" | "dashboard" | "profits" | "settings">(() => {
+    try {
+      const saved = localStorage.getItem("active_tab");
+      if (saved === "create" || saved === "dashboard" || saved === "profits" || saved === "settings") {
+        return saved as any;
+      }
+    } catch (e) {}
+    return "dashboard";
+  });
+  const [dashboardSubTab, setDashboardSubTab] = useState<"overview" | "timeline">(() => {
+    try {
+      const saved = localStorage.getItem("dashboard_sub_tab");
+      if (saved === "overview" || saved === "timeline") {
+        return saved as any;
+      }
+    } catch (e) {}
+    return "overview";
+  });
+
+  // Keep tab and subtab options synced to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("active_tab", activeTab);
+    } catch (e) {}
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("dashboard_sub_tab", dashboardSubTab);
+    } catch (e) {}
+  }, [dashboardSubTab]);
 
   // Load initial cached user synchronously to fetch relevant project and operations with zero lag
   const cachedUser = useMemo(() => {
@@ -767,17 +796,22 @@ function MainApp() {
                   onNavigateToNew={() => setActiveTab("create")}
                   onDeleteOperation={handleDeleteOperation}
                   onRestoreOperation={handleRestoreOperation}
+                  activeProject={activeProject}
                 />
               ) : (
                 <MonthlyTimeline 
                   operations={operations}
+                  activeProject={activeProject}
                 />
               )}
             </div>
           )}
 
           {activeTab === "profits" && (
-            <ProfitsDashboard operations={operations} />
+            <ProfitsDashboard 
+              operations={operations} 
+              activeProject={activeProject}
+            />
           )}
 
           {activeTab === "settings" && (

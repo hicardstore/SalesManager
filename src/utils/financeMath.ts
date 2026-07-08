@@ -125,3 +125,40 @@ export function formatMoney(val: number, activeProject?: any): string {
   
   return `${formattedEn} ${currency}`;
 }
+
+/**
+ * Centrally formats date values based on the active project's preferred calendar system (Gregorian vs Hijri).
+ * Always uses Western/English numerals as requested by the user.
+ */
+export function formatDate(
+  dateVal: any,
+  activeProject?: any,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  if (!dateVal) return "";
+  const date = new Date(dateVal);
+  if (isNaN(date.getTime())) return "";
+
+  const calendarSystem = activeProject?.calendarSystem || "gregorian"; // "gregorian" or "hijri"
+  
+  // Use Arabic locale with Western/English numerals (latn) as requested ("الأرقام الانجليزية فقط")
+  const locale = calendarSystem === "hijri" 
+    ? "ar-SA-u-ca-islamic-umalqura-nu-latn" 
+    : "ar-SA-u-nu-latn";
+
+  const defaultOptions: Intl.DateTimeFormatOptions = options || {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  };
+
+  try {
+    return date.toLocaleString(locale, defaultOptions);
+  } catch (err) {
+    console.error("Failed to format date with custom locale, falling back:", err);
+    return date.toLocaleString("en-US", defaultOptions);
+  }
+}

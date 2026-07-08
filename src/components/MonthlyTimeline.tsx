@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import { 
   Calendar, 
   ChevronLeft, 
@@ -18,6 +18,7 @@ import { getOperationFee, getOperationProfitWithDownPayment } from "../utils/fin
 
 interface MonthlyTimelineProps {
   operations?: Operation[];
+  activeProject?: any;
 }
 
 // Model: DailyPerformance matching spec requirements
@@ -32,58 +33,163 @@ interface DailyPerformance {
 }
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-const ARABIC_MONTHS = [
-  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", 
-  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
-];
 
-export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProps) {
-  const [selectedMetric, setSelectedMetric] = useState<"sales" | "profit">("profit");
+function getDaysInMonthLabel(sampleDate: Date, calendarSystem: string, label: string): { dayNum: number; date: Date }[] {
+  if (calendarSystem !== "hijri") {
+    const year = sampleDate.getFullYear();
+    const month = sampleDate.getMonth();
+    const daysCount = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysCount }, (_, i) => {
+      const dayNum = i + 1;
+      return { dayNum, date: new Date(year, month, dayNum) };
+    });
+  }
+
+  let current = new Date(sampleDate);
+  const getLabel = (d: Date) => d.toLocaleString("ar-SA-u-ca-islamic-umalqura-nu-latn", { month: "long", year: "numeric" });
   
-  // Dynamically generate months list from operations
-  const availableMonths = useMemo(() => {
-    const monthsSet = new Set<string>();
-    
-    // Always add the current month to the list so it is always selectable
-    const now = new Date();
-    const currentMonthLabel = `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    monthsSet.add(currentMonthLabel);
+  // backtrack up to 35 days to find the start of the Hijri month
+  for (let i = 0; i < 35; i++) {
+    const prev = new Date(current);
+    prev.setDate(prev.getDate() - 1);
+    if (getLabel(prev) !== label) {
+      break;
+    }
+    current = prev;
+  }
+  
+  const days: { dayNum: number; date: Date }[] = [];
+  let dayNum = 1;
+  while (getLabel(current) === label && dayNum <= 30) {
+    days.push({ dayNum, date: new Date(current) });
+    current.setDate(current.getDate() + 1);
+    dayNum++;
+  }
+  return days;
+}
 
-    // Add months from operations
+export default function MonthlyTimeline({ operations = [], activeProject }: MonthlyTimelineProps) {
+  const [selectedMetric, setSelectedMetric] = useState<"sales" | "profit">(() => {
+    try {
+      const saved = localStorage.getItem("mt_selected_metric");
+      if (saved === "sales" || saved === "profit") {
+        return saved;
+      }
+    } catch (e) {}
+    return "profit";
+  });
+  
+  // Helper to construct dynamic labels
+  const getLabelForDate = (date: Date) => {
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+    const locale = calendarSystem === "hijri" 
+      ? "ar-SA-u-ca-islamic-umalqura-nu-latn" 
+      : "ar-SA-u-nu-latn";
+    return date.toLocaleString(locale, { month: "long", year: "numeric" });
+  };
+
+  // Map each unique month label to a sample date of that month
+  const monthLabelMap = useMemo(() => {
+    const mapping: { [label: string]: Date } = {};
+    const now = new Date();
+    
+    mapping[getLabelForDate(now)] = now;
+
     operations.forEach(op => {
       if (op.date) {
         const d = new Date(op.date);
         if (!isNaN(d.getTime())) {
-          const label = `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-          monthsSet.add(label);
+          const lbl = getLabelForDate(d);
+          if (!mapping[lbl]) {
+            mapping[lbl] = d;
+          }
         }
       }
     });
 
-    // Sort months so the newest ones are at the top
-    const sorted = Array.from(monthsSet).sort((a, b) => {
-      const partsA = a.split(" ");
-      const partsB = b.split(" ");
-      const idxA = ARABIC_MONTHS.indexOf(partsA[0]);
-      const idxB = ARABIC_MONTHS.indexOf(partsB[0]);
-      const yearA = parseInt(partsA[1]) || 0;
-      const yearB = parseInt(partsB[1]) || 0;
-      
-      if (yearA !== yearB) return yearB - yearA;
-      return idxB - idxA;
-    });
+    return mapping;
+  }, [operations, activeProject?.calendarSystem]);
 
-    return sorted;
-  }, [operations]);
+  // Dynamically generate sorted months list from the map
+  const availableMonths = useMemo(() => {
+    return Object.keys(monthLabelMap).sort((a, b) => {
+      const dateA = monthLabelMap[a];
+      const dateB = monthLabelMap[b];
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [monthLabelMap]);
 
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>(() => {
-    const now = new Date();
-    return `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    try {
+      const saved = localStorage.getItem("mt_selected_month_year");
+      if (saved) return saved;
+    } catch (e) {}
+    return getLabelForDate(new Date());
   });
 
   const [selectedDay, setSelectedDay] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("mt_selected_day");
+      if (saved) {
+        const val = parseInt(saved);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {}
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+    if (calendarSystem === "hijri") {
+      try {
+        const parts = new Date().toLocaleDateString("en-US-u-ca-islamic-umalqura", { day: "numeric" });
+        return parseInt(parts) || new Date().getDate();
+      } catch (e) {
+        return new Date().getDate();
+      }
+    }
     return new Date().getDate();
   });
+
+  // Sync selections to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("mt_selected_metric", selectedMetric);
+    } catch (e) {}
+  }, [selectedMetric]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("mt_selected_month_year", selectedMonthYear);
+    } catch (e) {}
+  }, [selectedMonthYear]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("mt_selected_day", String(selectedDay));
+    } catch (e) {}
+  }, [selectedDay]);
+
+  // Keep selectedMonthYear and selectedDay in sync with preference switches
+  useEffect(() => {
+    const currentLabel = getLabelForDate(new Date());
+    // Only update if no previous saved selection or we're on first load
+    const savedMonth = localStorage.getItem("mt_selected_month_year");
+    if (!savedMonth) {
+      setSelectedMonthYear(currentLabel);
+    }
+    
+    const savedDay = localStorage.getItem("mt_selected_day");
+    if (!savedDay) {
+      const calendarSystem = activeProject?.calendarSystem || "gregorian";
+      if (calendarSystem === "hijri") {
+        try {
+          const parts = new Date().toLocaleDateString("en-US-u-ca-islamic-umalqura", { day: "numeric" });
+          setSelectedDay(parseInt(parts) || new Date().getDate());
+        } catch (e) {
+          setSelectedDay(new Date().getDate());
+        }
+      } else {
+        setSelectedDay(new Date().getDate());
+      }
+    }
+  }, [activeProject?.calendarSystem]);
 
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
@@ -93,35 +199,38 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
 
   // Group real operations by day if they match the selected month
   const monthlyData = useMemo(() => {
-    // Determine the month index and year from the selected filter
-    const parts = selectedMonthYear.split(" ");
-    const monthStr = parts[0];
-    const yearStr = parts[1];
+    const calendarSystem = activeProject?.calendarSystem || "gregorian";
+    const sampleDate = monthLabelMap[selectedMonthYear] || new Date();
     
-    const monthIdx = ARABIC_MONTHS.indexOf(monthStr) !== -1 ? ARABIC_MONTHS.indexOf(monthStr) : new Date().getMonth();
-    const year = parseInt(yearStr) || new Date().getFullYear();
-
-    // Days in that month
-    const daysCount = new Date(year, monthIdx + 1, 0).getDate();
+    // Get all days of the selected month
+    const daysList = getDaysInMonthLabel(sampleDate, calendarSystem, selectedMonthYear);
 
     // Filter real operations for this month and year
     const filteredOps = operations.filter(op => {
       if (!op.date) return false;
       const d = new Date(op.date);
-      return d.getMonth() === monthIdx && d.getFullYear() === year;
+      return !isNaN(d.getTime()) && getLabelForDate(d) === selectedMonthYear;
     });
 
     // Create array for each day
-    return Array.from({ length: daysCount }, (_, index) => {
-      const dayNum = index + 1;
-      const dateObj = new Date(year, monthIdx, dayNum);
-      const dayOfWeek = ARABIC_WEEKDAYS[dateObj.getDay()];
+    return daysList.map(({ dayNum, date }) => {
+      const dayOfWeek = ARABIC_WEEKDAYS[date.getDay()];
 
       // Operations on this exact day
       const opsOnDay = filteredOps.filter(op => {
         if (!op.date) return false;
         const d = new Date(op.date);
-        return d.getDate() === dayNum;
+        
+        if (calendarSystem === "hijri") {
+          try {
+            const hDayStr = d.toLocaleDateString("en-US-u-ca-islamic-umalqura", { day: "numeric" });
+            return parseInt(hDayStr) === dayNum;
+          } catch (e) {
+            return d.getDate() === dayNum;
+          }
+        } else {
+          return d.getDate() === dayNum;
+        }
       });
 
       if (opsOnDay.length > 0) {
@@ -140,7 +249,6 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
           hasData: true
         };
       } else {
-        // Real data: no fallback seeded mockup values as requested. Show 0 if no transactions.
         return {
           day: dayNum,
           dayOfWeek,
@@ -152,7 +260,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
         };
       }
     });
-  }, [operations, selectedMonthYear]);
+  }, [operations, selectedMonthYear, monthLabelMap, activeProject?.calendarSystem]);
 
   // Aggregate stats
   const aggregateStats = useMemo(() => {
@@ -323,7 +431,7 @@ export default function MonthlyTimeline({ operations = [] }: MonthlyTimelineProp
           </div>
           <div className="bg-neutral-50 border border-neutral-200/50 p-4 rounded-2xl min-w-[140px]">
             <span className="block text-[10px] font-black text-neutral-400 mb-1">أيام النشاط الفعلي</span>
-            <span className="text-lg font-black text-neutral-800">{aggregateStats.activeDays} يوم من 31</span>
+            <span className="text-lg font-black text-neutral-800">{aggregateStats.activeDays} يوم من {monthlyData.length}</span>
           </div>
         </div>
 

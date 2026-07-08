@@ -6,7 +6,7 @@ import { db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { ProjectWorkspace, Operation } from "../types";
 import { DebugPage } from "./DebugPage";
-import { formatMoney } from "../utils/financeMath";
+import { formatMoney, formatDate } from "../utils/financeMath";
 
 export function Settings({ 
   onLogoutReq,
@@ -661,7 +661,7 @@ export function Settings({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-right">
               {/* Number system preference */}
               <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
                 <span className="text-xs font-black text-neutral-700">نظام عرض الأرقام</span>
@@ -674,6 +674,31 @@ export function Settings({
                 </select>
                 <span className="text-[10px] text-neutral-400 font-bold mt-1">
                   معاينة التنسيق الحالي: <span className="text-neutral-700 font-black">{formatMoney(1500.5, activeProject)}</span>
+                </span>
+              </div>
+
+              {/* Calendar system preference */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                <span className="text-xs font-black text-neutral-700">نظام التقويم</span>
+                <select
+                  value={activeProject.calendarSystem || "gregorian"}
+                  onChange={async (e) => {
+                    const projectRef = doc(db, "projects", activeProject.id);
+                    try {
+                      await updateDoc(projectRef, {
+                        calendarSystem: e.target.value
+                      });
+                    } catch (err) {
+                      console.error("Failed to update calendar system:", err);
+                    }
+                  }}
+                  className="w-full bg-white border border-neutral-200 rounded-lg p-2.5 text-xs font-bold text-neutral-850 focus:outline-none focus:border-neutral-950"
+                >
+                  <option value="gregorian">التقويم الميلادي (Gregorian)</option>
+                  <option value="hijri">التقويم الهجري (Hijri)</option>
+                </select>
+                <span className="text-[10px] text-neutral-400 font-bold mt-1">
+                  معاينة التنسيق: <span className="text-neutral-700 font-black">{formatDate(new Date(), activeProject)}</span>
                 </span>
               </div>
 

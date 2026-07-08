@@ -4,7 +4,8 @@ import { Operation, InstallmentProvider, PREDEFINED_GROUPS } from "../types";
 import { 
   getOperationFee as getOperationFeeCentral, 
   getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral, 
-  getOperationProfitAfterDownPayment as getOperationProfitAfterDownPaymentCentral 
+  getOperationProfitAfterDownPayment as getOperationProfitAfterDownPaymentCentral,
+  formatDate
 } from "../utils/financeMath";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -44,6 +45,7 @@ interface FinanceDashboardProps {
   isLoading?: boolean;
   onDeleteOperation?: (opId: string) => Promise<boolean>;
   onRestoreOperation?: (opId: string) => Promise<boolean>;
+  activeProject?: any;
 }
 
 export default function FinanceDashboard({ 
@@ -52,13 +54,36 @@ export default function FinanceDashboard({
   onNavigateToNew, 
   isLoading, 
   onDeleteOperation,
-  onRestoreOperation
+  onRestoreOperation,
+  activeProject
 }: FinanceDashboardProps) {
   const { user } = useAuth();
   // Advanced filters state
-  const [filterGroup, setFilterGroup] = useState<"all" | "major" | "minor" | "custom">("all");
-  const [partnerFilter, setPartnerFilter] = useState<"all" | "كلنا" | "نواف" | "عبدالله">("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filterGroup, setFilterGroup] = useState<"all" | "major" | "minor" | "custom">(() => {
+    try {
+      const saved = localStorage.getItem("fd_filter_group");
+      if (saved === "all" || saved === "major" || saved === "minor" || saved === "custom") {
+        return saved;
+      }
+    } catch (e) {}
+    return "all";
+  });
+  const [partnerFilter, setPartnerFilter] = useState<"all" | "كلنا" | "نواف" | "عبدالله">(() => {
+    try {
+      const saved = localStorage.getItem("fd_partner_filter");
+      if (saved === "all" || saved === "كلنا" || saved === "نواف" || saved === "عبدالله") {
+        return saved as any;
+      }
+    } catch (e) {}
+    return "all";
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return localStorage.getItem("fd_search_query") || "";
+    } catch (e) {
+      return "";
+    }
+  });
   const [selectedOp, setSelectedOp] = useState<Operation | null>(null);
   const [opToDelete, setOpToDelete] = useState<Operation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -71,8 +96,41 @@ export default function FinanceDashboard({
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   // Interactive Trend Chart State
-  const [trendMetric, setTrendMetric] = useState<"sales" | "profit">("sales");
+  const [trendMetric, setTrendMetric] = useState<"sales" | "profit">(() => {
+    try {
+      const saved = localStorage.getItem("fd_trend_metric");
+      if (saved === "sales" || saved === "profit") {
+        return saved;
+      }
+    } catch (e) {}
+    return "sales";
+  });
   const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
+
+  // Sync filters to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_filter_group", filterGroup);
+    } catch (e) {}
+  }, [filterGroup]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_partner_filter", partnerFilter);
+    } catch (e) {}
+  }, [partnerFilter]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_search_query", searchQuery);
+    } catch (e) {}
+  }, [searchQuery]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_trend_metric", trendMetric);
+    } catch (e) {}
+  }, [trendMetric]);
 
   // Expanded toggles for UI sections
   const [isGroupsExpanded, setIsGroupsExpanded] = useState(false);
@@ -125,8 +183,36 @@ export default function FinanceDashboard({
   const [isExporting, setIsExporting] = useState(false);
   
   // Date filter state
-  const [dateFilter, setDateFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "3months" | "6months" | "year" | "custom">("all");
-  const [customDate, setCustomDate] = useState<string>("");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "3months" | "6months" | "year" | "custom">(() => {
+    try {
+      const saved = localStorage.getItem("fd_date_filter");
+      const allowed = ["all", "today", "yesterday", "week", "month", "3months", "6months", "year", "custom"];
+      if (saved && allowed.includes(saved)) {
+        return saved as any;
+      }
+    } catch (e) {}
+    return "all";
+  });
+  const [customDate, setCustomDate] = useState<string>(() => {
+    try {
+      return localStorage.getItem("fd_custom_date") || "";
+    } catch (e) {
+      return "";
+    }
+  });
+
+  // Sync dateFilter and customDate to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_date_filter", dateFilter);
+    } catch (e) {}
+  }, [dateFilter]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("fd_custom_date", customDate);
+    } catch (e) {}
+  }, [customDate]);
 
   const handleDeleteClick = (e: React.MouseEvent, op: Operation) => {
     e.stopPropagation();
@@ -1597,7 +1683,7 @@ export default function FinanceDashboard({
                               {op.id}
                             </span>
                             <span className="text-[9.5px] text-neutral-400 font-bold block whitespace-nowrap">
-                              {new Date(op.date || (op as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                              {formatDate(op.date || (op as any).createdAt, activeProject, {
                                 year: "numeric",
                                 month: "2-digit",
                                 day: "2-digit",
@@ -1688,7 +1774,7 @@ export default function FinanceDashboard({
                           {op.id}
                         </span>
                         <span className="text-[9px] text-neutral-400 font-bold block">
-                          {new Date(op.date || (op as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                          {formatDate(op.date || (op as any).createdAt, activeProject, {
                             year: "numeric",
                             month: "2-digit",
                             day: "2-digit",
@@ -1961,7 +2047,7 @@ export default function FinanceDashboard({
                   <div className="flex justify-between items-center py-1.5 border-b border-neutral-50">
                     <span className="text-neutral-400">تاريخ ووقت تسجيل العملية</span>
                     <span className="text-neutral-500 font-bold text-[10.5px]">
-                      {new Date(selectedOp.date || (selectedOp as any).createdAt).toLocaleString("ar-SA-u-nu-latn", {
+                      {formatDate(selectedOp.date || (selectedOp as any).createdAt, activeProject, {
                         year: "numeric",
                         month: "2-digit",
                         day: "2-digit",
@@ -2229,7 +2315,14 @@ export default function FinanceDashboard({
                             </p>
                             {(op as any).deletedAt && (
                               <p className="text-[9px] text-red-500 font-bold">
-                                تم الحذف في: {new Date((op as any).deletedAt).toLocaleString("ar-SA-u-nu-latn")}
+                                تم الحذف في: {formatDate((op as any).deletedAt, activeProject, {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true
+                                })}
                               </p>
                             )}
                           </div>
