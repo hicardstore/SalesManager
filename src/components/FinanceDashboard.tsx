@@ -285,19 +285,19 @@ export default function FinanceDashboard({
   };
 
   const getOperationFee = (op: Operation) => {
-    return getOperationFeeCentral(op);
+    return getOperationFeeCentral(op, activeProject);
   };
 
   const getOperationProfit = (op: Operation) => {
-    return getOperationProfitWithDownPaymentCentral(op);
+    return getOperationProfitWithDownPaymentCentral(op, activeProject);
   };
 
   const getOperationProfitWithDownPayment = (op: Operation) => {
-    return getOperationProfitWithDownPaymentCentral(op);
+    return getOperationProfitWithDownPaymentCentral(op, activeProject);
   };
 
   const getOperationProfitAfterDownPayment = (op: Operation) => {
-    return getOperationProfitAfterDownPaymentCentral(op);
+    return getOperationProfitAfterDownPaymentCentral(op, activeProject);
   };
 
   // Date filtering logic

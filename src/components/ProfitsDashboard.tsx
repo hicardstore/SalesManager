@@ -152,11 +152,11 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
 
   // Helper calculation functions (Matching system rules exactly)
   const getOperationFee = (op: Operation) => {
-    return getOperationFeeCentral(op);
+    return getOperationFeeCentral(op, activeProject);
   };
 
   const getOperationProfit = (op: Operation) => {
-    return getOperationProfitWithDownPaymentCentral(op);
+    return getOperationProfitWithDownPaymentCentral(op, activeProject);
   };
 
   // Filter operations for selected month

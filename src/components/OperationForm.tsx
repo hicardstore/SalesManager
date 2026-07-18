@@ -29,9 +29,10 @@ import {
 interface OperationFormProps {
   onAddOperation: (payload: any) => Promise<boolean>;
   onNavigateToDashboard: () => void;
+  activeProject?: any;
 }
 
-export default function OperationForm({ onAddOperation, onNavigateToDashboard }: OperationFormProps) {
+export default function OperationForm({ onAddOperation, onNavigateToDashboard, activeProject }: OperationFormProps) {
   // 1. Provider State
   const [provider, setProvider] = useState<InstallmentProvider>("إمكان");
 
@@ -91,6 +92,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
     commissionFee: parsedCommissionFee,
     provider,
     durationMonths: 12,
+    activeProject
   });
 
   const netTransferToClient = breakdown.netTransferToClient;
@@ -895,7 +897,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard }:
                   لوحة مراجعة وحساب العقد ماليًا:
                 </p>
                 <p className="text-[9.5px] text-neutral-500 leading-relaxed font-medium">
-                  الأرقام أدناه توضح توزيع المبيعات والأرباح ورسوم البوابة (6.99%). <span className="text-amber-800 font-bold">يرجى تأكيد التسجيل بالزر بالأسفل لإضافتها فعلياً للسجلات.</span>
+                  الأرقام أدناه توضح توزيع المبيعات والأرباح ورسوم البوابة (شاملة الضريبة {activeProject?.taxRate !== undefined ? activeProject.taxRate : 15}%). <span className="text-amber-800 font-bold">يرجى تأكيد التسجيل بالزر بالأسفل لإضافتها فعلياً للسجلات.</span>
                 </p>
               </div>
 

@@ -644,6 +644,35 @@ export function Settings({
                   </div>
                 );
               })}
+              {/* Tax Rate Setting */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                <span className="text-xs font-black text-neutral-700">الضريبة (VAT) على الرسوم</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-neutral-500">%</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={activeProject.taxRate !== undefined ? activeProject.taxRate : 15}
+                    onChange={async (e) => {
+                      const val = parseFloat(e.target.value);
+                      if (isNaN(val)) return;
+                      
+                      // Save in Firestore
+                      const projectRef = doc(db, "projects", activeProject.id);
+                      try {
+                        await updateDoc(projectRef, {
+                          taxRate: val
+                        });
+                      } catch (err) {
+                        console.error("Failed to update tax rate:", err);
+                      }
+                    }}
+                    className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}

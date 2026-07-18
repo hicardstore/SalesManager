@@ -196,8 +196,8 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
   // Helper functions for real profit computation
-  const getOperationFeeLocal = (op: Operation) => getOperationFee(op);
-  const getOperationProfit = (op: Operation) => getOperationProfitWithDownPayment(op);
+  const getOperationFeeLocal = (op: Operation) => getOperationFee(op, activeProject);
+  const getOperationProfit = (op: Operation) => getOperationProfitWithDownPayment(op, activeProject);
 
   // Group real operations by day if they match the selected month
   const monthlyData = useMemo(() => {

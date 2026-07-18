@@ -764,6 +764,7 @@ function MainApp() {
             <OperationForm 
               onAddOperation={handleAddOperation}
               onNavigateToDashboard={() => setActiveTab("dashboard")}
+              activeProject={activeProject}
             />
           )}
           

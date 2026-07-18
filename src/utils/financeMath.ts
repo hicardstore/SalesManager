@@ -18,14 +18,34 @@ export interface CalculatedOperationBreakdown {
  */
 export function getOperationFee(
   op: { packageAmount: number; provider: string },
-  customRates?: { [key: string]: number }
+  customRatesOrActiveProject?: { [key: string]: number } | any
 ): number {
   const normalizedProvider = (op.provider || "").trim();
+  
+  // Extract customRates and taxRate from either the direct object or activeProject
+  let customRates = undefined;
+  let taxRate = 15; // default 15%
+
+  if (customRatesOrActiveProject) {
+    if (customRatesOrActiveProject.customRates !== undefined) {
+      customRates = customRatesOrActiveProject.customRates;
+    } else {
+      // It might be just the customRates object itself if it doesn't have a customRates property
+      customRates = customRatesOrActiveProject;
+    }
+
+    if (customRatesOrActiveProject.taxRate !== undefined) {
+      taxRate = customRatesOrActiveProject.taxRate;
+    }
+  }
+
   if (["إمكان", "تمارا", "تابي"].includes(normalizedProvider)) {
     const rate = customRates && customRates[normalizedProvider] !== undefined
       ? customRates[normalizedProvider] / 100
       : 0.0699;
-    return Number((op.packageAmount * rate).toFixed(4));
+    const baseFee = op.packageAmount * rate;
+    const taxAmount = baseFee * (taxRate / 100);
+    return Number((baseFee + taxAmount).toFixed(4));
   }
   return 0;
 }
@@ -42,10 +62,10 @@ export function getOperationProfitWithDownPayment(
     provider: string;
     commissionFee?: number;
   },
-  customRates?: { [key: string]: number }
+  customRatesOrActiveProject?: { [key: string]: number } | any
 ): number {
   const grossProfit = (op.totalInstallmentAmount || 0) - op.packageAmount;
-  const fee = getOperationFee(op, customRates);
+  const fee = getOperationFee(op, customRatesOrActiveProject);
   const commission = op.commissionFee || 0;
   return Number((grossProfit - fee - commission).toFixed(4));
 }
@@ -63,9 +83,9 @@ export function getOperationProfitAfterDownPayment(
     commissionFee?: number;
     downPayment?: number;
   },
-  customRates?: { [key: string]: number }
+  customRatesOrActiveProject?: { [key: string]: number } | any
 ): number {
-  return getOperationProfitWithDownPayment(op, customRates);
+  return getOperationProfitWithDownPayment(op, customRatesOrActiveProject);
 }
 
 /**
@@ -79,6 +99,8 @@ export function calculateOperationBreakdown(params: {
   provider: string;
   durationMonths?: number;
   customRates?: { [key: string]: number };
+  taxRate?: number;
+  activeProject?: any;
 }): CalculatedOperationBreakdown {
   const packageAmount = Math.max(0, params.packageAmount || 0);
   const totalInstallmentAmount = Math.max(0, params.totalInstallmentAmount || 0);
@@ -86,7 +108,9 @@ export function calculateOperationBreakdown(params: {
   const commissionFee = Math.max(0, params.commissionFee || 0);
   const durationMonths = params.durationMonths && params.durationMonths > 0 ? params.durationMonths : 12;
 
-  const providerFee = getOperationFee({ packageAmount, provider: params.provider }, params.customRates);
+  const configObj = params.activeProject || { customRates: params.customRates, taxRate: params.taxRate };
+
+  const providerFee = getOperationFee({ packageAmount, provider: params.provider }, configObj);
   const netTransferToClient = Math.max(0, Number((packageAmount - downPayment).toFixed(4)));
   const monthlyInstallment = Number((netTransferToClient / durationMonths).toFixed(2));
   const grossProfit = Number((totalInstallmentAmount - packageAmount).toFixed(4));
@@ -95,7 +119,7 @@ export function calculateOperationBreakdown(params: {
     packageAmount,
     provider: params.provider,
     commissionFee,
-  }, params.customRates);
+  }, configObj);
 
   return {
     packageAmount,
