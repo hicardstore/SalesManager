@@ -399,7 +399,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                 <span className="text-xs font-bold text-neutral-400">ر.س</span>
               </div>
               <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md font-bold">
-                {stats.installmentsTotal > 0 ? ((stats.netProfitTotal / stats.installmentsTotal) * 100).toFixed(1) : "0.0"}%
+                {(stats.installmentsTotal - stats.providerFeesTotal) > 0 ? ((stats.netProfitTotal / (stats.installmentsTotal - stats.providerFeesTotal)) * 100).toFixed(1) : "0.0"}%
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-[#10b981] font-bold">

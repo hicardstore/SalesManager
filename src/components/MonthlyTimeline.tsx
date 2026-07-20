@@ -27,6 +27,7 @@ interface DailyPerformance {
   dayOfWeek: string;
   sales: number;
   profit: number;
+  fees: number;
   orders: number;
   averageOrder: number;
   hasData: boolean;
@@ -238,6 +239,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
       if (opsOnDay.length > 0) {
         const sales = opsOnDay.reduce((sum, op) => sum + (Number(op.totalInstallmentAmount) || 0), 0);
         const profit = opsOnDay.reduce((sum, op) => sum + getOperationProfit(op), 0);
+        const fees = opsOnDay.reduce((sum, op) => sum + getOperationFee(op, activeProject), 0);
         const orders = opsOnDay.length;
         const averageOrder = orders > 0 ? Math.round(sales / orders) : 0;
 
@@ -246,6 +248,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
           dayOfWeek,
           sales,
           profit,
+          fees,
           orders,
           averageOrder,
           hasData: true
@@ -256,6 +259,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
           dayOfWeek,
           sales: 0,
           profit: 0,
+          fees: 0,
           orders: 0,
           averageOrder: 0,
           hasData: false
@@ -286,6 +290,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
       dayOfWeek: "الخميس",
       sales: 0,
       profit: 0,
+      fees: 0,
       orders: 0,
       averageOrder: 0,
       hasData: false
@@ -649,7 +654,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
               <span className="text-neutral-400">صافي أرباح التاجر المحققة لليوم</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال</span>
-                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{selectedDayData.sales > 0 ? ((selectedDayData.profit / selectedDayData.sales) * 100).toFixed(1) : "0.0"}%</span>
+                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{(selectedDayData.sales - selectedDayData.fees) > 0 ? (((selectedDayData.profit / (selectedDayData.sales - selectedDayData.fees))) * 100).toFixed(1) : "0.0"}%</span>
               </div>
             </div>
           </div>
