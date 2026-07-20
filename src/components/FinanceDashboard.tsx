@@ -29,7 +29,8 @@ import {
   Sheet,
   Download,
   Calendar,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -46,6 +47,7 @@ interface FinanceDashboardProps {
   onDeleteOperation?: (opId: string) => Promise<boolean>;
   onRestoreOperation?: (opId: string) => Promise<boolean>;
   activeProject?: any;
+  onEditOperation?: (op: Operation) => void;
 }
 
 export default function FinanceDashboard({ 
@@ -55,7 +57,8 @@ export default function FinanceDashboard({
   isLoading, 
   onDeleteOperation,
   onRestoreOperation,
-  activeProject
+  activeProject,
+  onEditOperation
 }: FinanceDashboardProps) {
   const { user } = useAuth();
   // Advanced filters state
@@ -1751,6 +1754,19 @@ export default function FinanceDashboard({
                               <span>عرض العقد والمطابقة</span>
                               <ExternalLink className="w-3 h-3 text-[#2563eb]" />
                             </button>
+                            {onEditOperation && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditOperation(op);
+                                }}
+                                className="p-1.5 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-lg border border-blue-100 hover:border-blue-600 transition-all cursor-pointer"
+                                title="تعديل العملية"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             {onDeleteOperation && (
                               <button
                                 type="button"
@@ -1857,18 +1873,33 @@ export default function FinanceDashboard({
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t border-dashed border-neutral-100 pr-1.5">
-                      {onDeleteOperation ? (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteClick(e, op)}
-                          className="text-[10px] text-red-600 hover:text-red-750 flex items-center gap-1 font-black p-1 px-2.5 bg-red-50 hover:bg-red-100/80 rounded-lg cursor-pointer transition-colors"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>حذف العملية</span>
-                        </button>
-                      ) : <span />}
+                      <div className="flex items-center gap-1.5">
+                        {onEditOperation && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditOperation(op);
+                            }}
+                            className="text-[10px] text-blue-600 hover:text-blue-750 flex items-center gap-1 font-black p-1 px-2.5 bg-blue-50 hover:bg-blue-100/80 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>تعديل</span>
+                          </button>
+                        )}
+                        {onDeleteOperation ? (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteClick(e, op)}
+                            className="text-[10px] text-red-600 hover:text-red-750 flex items-center gap-1 font-black p-1 px-2.5 bg-red-50 hover:bg-red-100/80 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>حذف</span>
+                          </button>
+                        ) : null}
+                      </div>
                       <span className="text-[9px] text-neutral-400 flex items-center gap-1 font-bold">
-                        <span>انقر لمعاينة العقد المالي كاملاً</span>
+                        <span>انقر للمعاينة</span>
                         <ChevronLeft className="w-3 h-3" />
                       </span>
                     </div>
@@ -2127,7 +2158,7 @@ export default function FinanceDashboard({
               </div>
 
               {/* Bottom Print/Action bar */}
-              <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex gap-2">
+              <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex gap-2 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -2138,6 +2169,21 @@ export default function FinanceDashboard({
                   <Printer className="w-3.5 h-3.5" />
                   <span>طباعة تفاصيل عقد البيع</span>
                 </button>
+                {onEditOperation && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedOp) {
+                        onEditOperation(selectedOp);
+                        setSelectedOp(null);
+                      }
+                    }}
+                    className="px-4.5 h-11 bg-blue-50 hover:bg-blue-600 text-blue-650 hover:text-white border border-blue-200 hover:border-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>تعديل</span>
+                  </button>
+                )}
                 {onDeleteOperation && (
                   <button
                     type="button"

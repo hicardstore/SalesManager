@@ -11,7 +11,7 @@ import { AuthScreens } from "./components/AuthScreens";
 import { Settings } from "./components/Settings";
 import { ProfitsDashboard } from "./components/ProfitsDashboard";
 import { db, auth } from "./firebase";
-import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, doc, setDoc, serverTimestamp, deleteDoc, getDocs, updateDoc } from "firebase/firestore";
 
 enum OperationType {
   CREATE = 'create',
@@ -142,6 +142,7 @@ function MainApp() {
 
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [editingOperation, setEditingOperation] = useState<Operation | null>(null);
 
   // Prevent background scrolling when logout modal is open
   useEffect(() => {
@@ -617,6 +618,28 @@ function MainApp() {
     }
   };
 
+  const handleUpdateOperation = async (opId: string, payload: any): Promise<boolean> => {
+    if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
+    if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة لتحديث العملية فيها.");
+
+    const path = `projects/${activeProject.id}/operations/${opId}`;
+    try {
+      const dbPayload = {
+        ...payload,
+        userId: user.id,
+        updatedAt: serverTimestamp(),
+        date: payload.date || new Date().toISOString()
+      };
+      
+      const opDocRef = doc(db, "projects", activeProject.id, "operations", opId);
+      await updateDoc(opDocRef, dbPayload);
+      return true;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, path);
+      return false;
+    }
+  };
+
   const handleDeleteOperation = async (opId: string): Promise<boolean> => {
     if (!user) throw new Error("لم يتم تسجيل الدخول بعد.");
     if (!activeProject) throw new Error("لم يتم العثور على مساحة عمل نشطة.");
@@ -752,7 +775,12 @@ function MainApp() {
       
       <Header 
         currentTab={activeTab} 
-        onNavigate={setActiveTab} 
+        onNavigate={(tab) => {
+          if (tab !== "create") {
+            setEditingOperation(null);
+          }
+          setActiveTab(tab);
+        }} 
         onLogout={() => setShowLogoutConfirm(true)} 
         isSyncing={isLoadingProject || loading}
       />
@@ -763,8 +791,17 @@ function MainApp() {
           {activeTab === "create" && (
             <OperationForm 
               onAddOperation={handleAddOperation}
-              onNavigateToDashboard={() => setActiveTab("dashboard")}
+              onNavigateToDashboard={() => {
+                setEditingOperation(null);
+                setActiveTab("dashboard");
+              }}
               activeProject={activeProject}
+              editingOperation={editingOperation}
+              onUpdateOperation={handleUpdateOperation}
+              onCancelEdit={() => {
+                setEditingOperation(null);
+                setActiveTab("dashboard");
+              }}
             />
           )}
           
@@ -813,10 +850,17 @@ function MainApp() {
                   operations={operations}
                   deletedOperations={deletedOperations}
                   isLoading={loading}
-                  onNavigateToNew={() => setActiveTab("create")}
+                  onNavigateToNew={() => {
+                    setEditingOperation(null);
+                    setActiveTab("create");
+                  }}
                   onDeleteOperation={handleDeleteOperation}
                   onRestoreOperation={handleRestoreOperation}
                   activeProject={activeProject}
+                  onEditOperation={(op) => {
+                    setEditingOperation(op);
+                    setActiveTab("create");
+                  }}
                 />
               ) : (
                 <MonthlyTimeline 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { InstallmentProvider, PREDEFINED_GROUPS, PredefinedGroup } from "../types";
+import { InstallmentProvider, PREDEFINED_GROUPS, PredefinedGroup, OperationStatus } from "../types";
 import { calculateOperationBreakdown, getOperationFee } from "../utils/financeMath";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -30,9 +30,19 @@ interface OperationFormProps {
   onAddOperation: (payload: any) => Promise<boolean>;
   onNavigateToDashboard: () => void;
   activeProject?: any;
+  editingOperation?: any;
+  onUpdateOperation?: (opId: string, payload: any) => Promise<boolean>;
+  onCancelEdit?: () => void;
 }
 
-export default function OperationForm({ onAddOperation, onNavigateToDashboard, activeProject }: OperationFormProps) {
+export default function OperationForm({ 
+  onAddOperation, 
+  onNavigateToDashboard, 
+  activeProject,
+  editingOperation,
+  onUpdateOperation,
+  onCancelEdit
+}: OperationFormProps) {
   // 1. Provider State
   const [provider, setProvider] = useState<InstallmentProvider>("إمكان");
 
@@ -54,6 +64,68 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
 
   // 4. Date State (Mandatory)
   const [operationDate, setOperationDate] = useState<string>("");
+
+  // 5. Client Name and Status States
+  const [clientName, setClientName] = useState<string>("");
+  const [status, setStatus] = useState<OperationStatus>("مكتمل");
+
+  const formatDateForInput = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      const pad = (num: number) => num.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch (e) {
+      return "";
+    }
+  };
+
+  React.useEffect(() => {
+    if (editingOperation) {
+      setProvider(editingOperation.provider || "إمكان");
+      setDownPayment(editingOperation.downPayment ? editingOperation.downPayment.toString() : "");
+      setCommissionFee(editingOperation.commissionFee ? editingOperation.commissionFee.toString() : "");
+      setAdvancePaidBy(editingOperation.advancePaidBy || "كلنا");
+      setDownPaymentPaidBy(editingOperation.downPaymentPaidBy || "العميل");
+      setTransferFeePaidBy(editingOperation.transferFeePaidBy || "كلنا");
+      setOperationDate(formatDateForInput(editingOperation.date));
+      setClientName(editingOperation.clientName || "");
+      setStatus(editingOperation.status || "مكتمل");
+      
+      // Match predefined group
+      const matchingGroup = PREDEFINED_GROUPS.find(
+        g => g.packageAmount === editingOperation.packageAmount && g.totalInstallmentAmount === editingOperation.totalInstallmentAmount
+      );
+      if (matchingGroup) {
+        setSelectedGroupId(matchingGroup.id);
+        setCustomPackageAmount("");
+        setCustomTotalInstallmentAmount("");
+      } else {
+        setSelectedGroupId("custom");
+        setCustomPackageAmount(editingOperation.packageAmount ? editingOperation.packageAmount.toString() : "");
+        setCustomTotalInstallmentAmount(editingOperation.totalInstallmentAmount ? editingOperation.totalInstallmentAmount.toString() : "");
+      }
+    } else {
+      // Set default date to current local time for convenience if adding a new operation
+      const pad = (num: number) => num.toString().padStart(2, "0");
+      const now = new Date();
+      setOperationDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+      
+      // Reset form on transition to create mode
+      setProvider("إمكان");
+      setSelectedGroupId(PREDEFINED_GROUPS[0]?.id || "3000");
+      setDownPayment("");
+      setCommissionFee("");
+      setCustomPackageAmount("");
+      setCustomTotalInstallmentAmount("");
+      setAdvancePaidBy("كلنا");
+      setDownPaymentPaidBy("العميل");
+      setTransferFeePaidBy("كلنا");
+      setClientName("");
+      setStatus("مكتمل");
+    }
+  }, [editingOperation]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successAnimation, setSuccessAnimation] = useState(false);
@@ -156,14 +228,14 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
       : (selectedGroup ? selectedGroup.label : "مجموعة غير معروفة");
 
     const payload = {
-      clientId: `CL-${Math.floor(1000 + Math.random() * 9000)}`,
-      clientName: `عملية مبيعات ${groupLabel}`,
+      clientId: editingOperation ? editingOperation.clientId : `CL-${Math.floor(1000 + Math.random() * 9000)}`,
+      clientName: clientName.trim() || (editingOperation ? editingOperation.clientName : `عملية مبيعات ${groupLabel}`),
       date: operationDate,
       packageAmount,
       downPayment: parsedDownPayment,
       commissionFee: parsedCommissionFee,
       provider,
-      status: "مكتمل",
+      status: status,
       totalInstallmentAmount,
       monthlyInstallment,
       advancePaidBy,
@@ -172,7 +244,10 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
     };
 
     try {
-      const success = await onAddOperation(payload);
+      const success = (editingOperation && onUpdateOperation)
+        ? await onUpdateOperation(editingOperation.id, payload)
+        : await onAddOperation(payload);
+
       if (success) {
         setSuccessAnimation(true);
         setTimeout(() => {
@@ -188,9 +263,11 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
           setAdvancePaidBy("كلنا");
           setDownPaymentPaidBy("العميل");
           setTransferFeePaidBy("كلنا");
+          setClientName("");
+          setStatus("مكتمل");
         }, 500); 
       } else {
-        setErrorMessage("فشل في إكمال وتسجيل العملية. يرجى التحقق من الخادم.");
+        setErrorMessage(editingOperation ? "فشل في حفظ وتعديل العملية. يرجى التحقق من الخادم." : "فشل في إكمال وتسجيل العملية. يرجى التحقق من الخادم.");
       }
     } catch (err: any) {
       setErrorMessage(err?.message || "حدث خطأ ما أثناء حفظ البيانات.");
@@ -273,9 +350,11 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
                 <div className="absolute inset-0 bg-emerald-500/10 rounded-[2.2rem] animate-pulse" />
                 <CheckCircle className="w-12 h-12 text-emerald-400 relative z-10" />
               </motion.div>
-              <h3 className="text-2xl font-black text-neutral-950 font-sans tracking-tight">تم قيد وتسجيل العملية ماليًا!</h3>
+              <h3 className="text-2xl font-black text-neutral-950 font-sans tracking-tight">
+                {editingOperation ? "تم تعديل وحفظ العملية ماليًا!" : "تم قيد وتسجيل العملية ماليًا!"}
+              </h3>
               <p className="text-sm text-neutral-500 mt-3 font-medium max-w-[280px] leading-relaxed">
-                جرى إدراج الصفقة بنجاح، وتحديث شاشات الأداء والخط الزمني والمؤشرات الكلية لمشروعك.
+                {editingOperation ? "جرى تحديث تفاصيل الصفقة وتعديل المؤشرات المالية بنجاح." : "جرى إدراج الصفقة بنجاح، وتحديث شاشات الأداء والخط الزمني والمؤشرات الكلية لمشروعك."}
               </p>
             </motion.div>
           )}
@@ -291,10 +370,14 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
           <span>تشفير آمن للعملية</span>
         </div>
         <div className="space-y-1 relative z-10">
-          <span className="text-[10px] bg-white/10 text-neutral-300 px-2 py-0.5 rounded-md font-bold inline-block mb-1">لوحة المدفوعات التفاعلية</span>
-          <h2 className="text-xl font-black font-sans tracking-tight">تسجيل عملية بيع جديدة</h2>
+          <span className="text-[10px] bg-white/10 text-neutral-300 px-2 py-0.5 rounded-md font-bold inline-block mb-1">
+            {editingOperation ? "تعديل عقد مسجل" : "لوحة المدفوعات التفاعلية"}
+          </span>
+          <h2 className="text-xl font-black font-sans tracking-tight">
+            {editingOperation ? "تعديل عملية المبيعات المسجلة" : "تسجيل عملية بيع جديدة"}
+          </h2>
           <p className="text-xs text-neutral-400 max-w-[380px] leading-relaxed">
-            قم بتوثيق عقود مبيعات التقسيط وحساب صافي أرباحك وتتبع الحصص المالية بشكل دقيق ولحظي.
+            {editingOperation ? "تستطيع تعديل كافة تفاصيل العملية المسجلة وحساب الهوامش والأرباح من جديد." : "قم بتوثيق عقود مبيعات التقسيط وحساب صافي أرباحك وتتبع الحصص المالية بشكل دقيق ولحظي."}
           </p>
         </div>
       </div>
@@ -893,6 +976,53 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
           </div>
         </div>
 
+        {/* Step 6: Client Name & Status (Editable) */}
+        <div className="bg-white p-5 rounded-2xl border border-neutral-200/50 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">6</span>
+              <h3 className="text-xs font-black text-neutral-900">اسم العميل وحالة الصفقة</h3>
+            </div>
+            <span className="text-[10px] text-neutral-400 font-bold">تحديد تفاصيل اسم العميل وحالة التحصيل</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10.5px] font-black text-neutral-800">اسم العميل (اختياري)</label>
+              <input
+                type="text"
+                placeholder={editingOperation ? "تعديل اسم العميل" : "تلقائي بناءً على المجموعة التجارية"}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                className="w-full text-xs h-11 px-3.5 text-right font-bold rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10.5px] font-black text-neutral-800">حالة العملية</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["مكتمل", "قيد المراجعة"] as const).map((s) => {
+                  const isSelected = status === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setStatus(s)}
+                      className={`py-2.5 px-3 rounded-xl border text-center text-xs font-black transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                          : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Closing Form Inputs Column */}
         </div>
 
@@ -1044,23 +1174,35 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
         </div>
 
         {/* Form Submission Action Trigger */}
-        <button
-          type="submit"
-          disabled={isSubmitting || successAnimation || !selectedGroupId}
-          className="w-full h-12 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 text-white rounded-xl font-black text-xs flex items-center justify-center gap-2 duration-150 transition-all cursor-pointer shadow-lg shadow-neutral-900/10 active:scale-[0.99] touch-none"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-white/50" />
-              <span>جاري تسجيل وحفظ السجلات المالية...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-4 h-4" />
-              <span>تأكيد وتسجيل عملية البيع بالسجلات</span>
-            </>
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
+          <button
+            type="submit"
+            disabled={isSubmitting || successAnimation || !selectedGroupId}
+            className="flex-1 h-12 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 text-white rounded-xl font-black text-xs flex items-center justify-center gap-2 duration-150 transition-all cursor-pointer shadow-lg shadow-neutral-900/10 active:scale-[0.99] touch-none"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+                <span>جاري حفظ السجلات المالية...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>{editingOperation ? "تأكيد وحفظ تعديلات العملية" : "تأكيد وتسجيل عملية البيع بالسجلات"}</span>
+              </>
+            )}
+          </button>
+          
+          {editingOperation && onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="px-6 h-12 bg-white hover:bg-neutral-50 text-neutral-800 rounded-xl font-black text-xs border border-neutral-200 transition-all cursor-pointer active:scale-[0.99]"
+            >
+              إلغاء التعديل
+            </button>
           )}
-        </button>
+        </div>
         {/* Closing Sticky Interactive Ledger Column */}
         </div>
       </form>
