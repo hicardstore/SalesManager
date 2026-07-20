@@ -1080,15 +1080,15 @@ export default function FinanceDashboard({
                   <div className="grid grid-cols-3 gap-2 pt-1 text-center text-[9px] font-bold">
                     <div>
                       <p className="text-neutral-400 leading-none">مبيعات</p>
-                      <p className="text-neutral-800 mt-0.5 font-mono">{p.sales.toLocaleString("en-US")} ر.س</p>
+                      <p className="text-neutral-800 mt-0.5 font-mono">{p.sales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
                     <div>
                       <p className="text-neutral-400 leading-none">أرباح</p>
-                      <p className="text-emerald-700 mt-0.5 font-mono">+{p.profit.toLocaleString("en-US")} ر.س</p>
+                      <p className="text-emerald-700 mt-0.5 font-mono">+{p.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
                     <div>
                       <p className="text-neutral-400 leading-none">رسوم بوابة</p>
-                      <p className="text-red-600 mt-0.5 font-mono">{p.fees.toLocaleString("en-US")} ر.س</p>
+                      <p className="text-red-600 mt-0.5 font-mono">{p.fees.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
                     </div>
                   </div>
                 </div>

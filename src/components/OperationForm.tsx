@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { InstallmentProvider, PREDEFINED_GROUPS, PredefinedGroup } from "../types";
-import { calculateOperationBreakdown } from "../utils/financeMath";
+import { calculateOperationBreakdown, getOperationFee } from "../utils/financeMath";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   CreditCard, 
@@ -345,7 +345,17 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
                 <button
                   key={prov}
                   type="button"
-                  onClick={() => setProvider(prov)}
+                  onClick={() => {
+                    setProvider(prov);
+                    const total = parseFloat(customTotalInstallmentAmount);
+                    const margin = activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
+                    if (selectedGroupId === "custom" && !isNaN(total)) {
+                      const fee = getOperationFee({ totalInstallmentAmount: total, provider: prov }, activeProject);
+                      const amountAfterFees = Math.max(0, total - fee);
+                      const calculatedPackage = amountAfterFees * (1 - margin / 100);
+                      setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                    }
+                  }}
                   className={`py-4 px-3 rounded-xl border text-center font-black text-xs transition-all duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer h-22 relative overflow-hidden ${brandColorClass}`}
                 >
                   {activeIndicator}
@@ -514,13 +524,22 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
               animate={{ opacity: 1, y: 0 }}
               className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/70 space-y-4"
             >
-              <div className="flex items-center gap-2 border-b border-neutral-200 pb-2">
-                <Sliders className="w-4 h-4 text-neutral-600" />
-                <h4 className="text-xs font-black text-neutral-900">تخصيص مبالغ المجموعة التجارية</h4>
+              <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-neutral-600" />
+                  <h4 className="text-xs font-black text-neutral-900">تخصيص مبالغ المجموعة التجارية</h4>
+                </div>
+                <div className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-black flex items-center gap-1 border border-emerald-100">
+                  <Percent className="w-3 h-3" />
+                  <span>هامش الربح المعتمد: {activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}%</span>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-neutral-500 font-black block">صافي التمويل للعميل (سعر الكاش)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-neutral-500 font-black block">صافي التمويل للعميل (سعر الكاش)</label>
+                    <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm">خصم تلقائي</span>
+                  </div>
                   <div className="relative">
                     <input
                       type="number"
@@ -546,7 +565,20 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
                       placeholder="0.00"
                       required={selectedGroupId === "custom"}
                       value={customTotalInstallmentAmount}
-                      onChange={(e) => setCustomTotalInstallmentAmount(e.target.value)}
+                      onChange={(e) => {
+                        const valStr = e.target.value;
+                        setCustomTotalInstallmentAmount(valStr);
+                        const total = parseFloat(valStr);
+                        const margin = activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
+                        if (!isNaN(total)) {
+                          const fee = getOperationFee({ totalInstallmentAmount: total, provider }, activeProject);
+                          const amountAfterFees = Math.max(0, total - fee);
+                          const calculatedPackage = amountAfterFees * (1 - margin / 100);
+                          setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                        } else {
+                          setCustomPackageAmount("");
+                        }
+                      }}
                       className="w-full h-11 px-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs text-center font-black focus:border-neutral-950 transition-colors"
                     />
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9.5px] text-neutral-400 font-bold">ر.س</span>
@@ -965,7 +997,7 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
-                  <p className="text-[9.5px] text-neutral-400 font-bold">رسوم بوابة التقسيط (6.99%)</p>
+                  <p className="text-[9.5px] text-neutral-400 font-bold">رسوم بوابة التقسيط ({provider})</p>
                   <p className="text-sm font-black text-red-650 font-mono mt-0.5">
                     {providerFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
@@ -975,6 +1007,19 @@ export default function OperationForm({ onAddOperation, onNavigateToDashboard, a
                   <p className="text-[9.5px] text-neutral-400 font-bold">رسوم عمولة الوساطة المسجلة</p>
                   <p className="text-sm font-black text-red-650 font-mono mt-0.5">
                     {parsedCommissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                  </p>
+                </div>
+
+                {/* Amount after all gateway and merchant fees (القيمة الصافية بعد خصم جميع الرسوم) */}
+                <div className="col-span-2 bg-neutral-50 p-3 rounded-xl border border-neutral-100 flex items-center justify-between text-right mt-1.5 shadow-sm">
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-black">المبلغ بعد خصم الرسوم (الصافي المستلم للتاجر)</p>
+                    <p className="text-[7.5px] text-neutral-450 mt-0.5 leading-relaxed">
+                      * المبلغ المتبقي بعد خصم نسبة بوابة التقسيط ({provider}) + الرسم الثابت والضريبة (VAT).
+                    </p>
+                  </div>
+                  <p className="text-sm font-black text-neutral-900 font-mono">
+                    {(totalInstallmentAmount - providerFee).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
                 </div>
 

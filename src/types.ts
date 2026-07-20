@@ -22,6 +22,7 @@ export interface ProjectWorkspace {
   customRates?: Record<string, number>;
   customFlatFees?: Record<string, number>;
   taxRate?: number;
+  profitMarginPercent?: number;
   numberSystem?: string;
   currencySymbol?: string;
   calendarSystem?: string;

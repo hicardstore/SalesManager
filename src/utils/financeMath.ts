@@ -164,7 +164,7 @@ export function formatMoney(val: number, activeProject?: any): string {
   
   // Format with thousands separator
   const formattedEn = Number(val).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
   

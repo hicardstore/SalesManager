@@ -715,6 +715,36 @@ export function Settings({
                   />
                 </div>
               </div>
+
+              {/* Profit Margin Setting */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
+                <span className="text-xs font-black text-neutral-700">نسبة هامش الربح الافتراضية (%)</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-neutral-500">%</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}
+                    onChange={async (e) => {
+                      const val = parseFloat(e.target.value);
+                      if (isNaN(val)) return;
+                      
+                      // Save in Firestore
+                      const projectRef = doc(db, "projects", activeProject.id);
+                      try {
+                        await updateDoc(projectRef, {
+                          profitMarginPercent: val
+                        });
+                      } catch (err) {
+                        console.error("Failed to update profit margin percent:", err);
+                      }
+                    }}
+                    className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}

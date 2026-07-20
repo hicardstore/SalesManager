@@ -395,7 +395,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
           <div className="space-y-1 relative">
             <div className="text-2xl font-black text-neutral-900 flex items-center gap-1.5 flex-wrap">
               <div className="flex items-baseline gap-1">
-                <span>{stats.netProfitTotal.toLocaleString("en-US")}</span>
+                <span>{stats.netProfitTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 <span className="text-xs font-bold text-neutral-400">ر.س</span>
               </div>
               <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md font-bold">
@@ -420,7 +420,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
           </div>
           <div className="space-y-1 relative">
             <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
-              <span>{stats.salesTotal.toLocaleString("en-US")}</span>
+              <span>{stats.salesTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="text-xs font-bold text-neutral-400">ر.س</span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-blue-600 font-bold">
@@ -440,7 +440,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
           </div>
           <div className="space-y-1 relative">
             <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
-              <span>{stats.providerFeesTotal.toLocaleString("en-US")}</span>
+              <span>{stats.providerFeesTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="text-xs font-bold text-neutral-400">ر.س</span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-amber-600 font-bold">
@@ -481,7 +481,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
               <h3 className="text-sm font-black text-neutral-800">تتبع منحنى الأرباح اليومية</h3>
             </div>
             <span className="text-[10px] font-black text-neutral-400 bg-neutral-50 px-2.5 py-1 rounded-md">
-              الحد الأقصى اليومي: {Math.round(maxDailyProfit).toLocaleString("en-US")} ر.س
+              الحد الأقصى اليومي: {maxDailyProfit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
             </span>
           </div>
 
@@ -536,7 +536,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                           strokeWidth="2.5"
                           className="transition-all duration-150 hover:r-7"
                         />
-                        <title>{selectedMonthYear === "الكل" ? `${d.label}: ${Math.round(d.profit)} ر.س ربح` : `اليوم ${d.day}: ${Math.round(d.profit)} ر.س ربح`}</title>
+                        <title>{selectedMonthYear === "الكل" ? `${d.label}: ${d.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س ربح` : `اليوم ${d.day}: ${d.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س ربح`}</title>
                       </g>
                     );
                   })}
@@ -598,7 +598,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
 
                   <div className="flex justify-between items-baseline">
                     <div className="text-base font-black text-neutral-900">
-                      {item.profit.toLocaleString("en-US")} <span className="text-[10px] text-neutral-400 font-bold">ر.س صافي</span>
+                      {item.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-neutral-400 font-bold">ر.س صافي</span>
                     </div>
                     <div className="text-xs font-black text-neutral-500">
                       %{pct > 0 ? pct : 0} من أرباحك
@@ -673,27 +673,27 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                           <div>
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">رأس المال (الباقة)</span>
-                            <span className="font-black text-neutral-800">{op.packageAmount.toLocaleString("en-US")} ر.س</span>
+                            <span className="font-black text-neutral-800">{op.packageAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">إجمالي التمويل</span>
-                            <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</span>
+                            <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
                           </div>
                           {op.downPayment > 0 && (
                             <div>
                               <span className="text-[10px] text-amber-600 font-bold block mb-0.5">الدفعة الأولى</span>
-                              <span className="font-black text-amber-600">{op.downPayment.toLocaleString("en-US")} ر.س</span>
+                              <span className="font-black text-amber-600">{op.downPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
                             </div>
                           )}
                           <div>
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">
                               رسوم الخدمة (6.99%)
                             </span>
-                            <span className="font-black text-red-500">{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</span>
+                            <span className="font-black text-red-500">{(fee > 0 ? `-${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">العمولة المدفوعة</span>
-                            <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</span>
+                            <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</span>
                           </div>
                         </div>
 
@@ -701,7 +701,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                         <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
                           <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("en-US")} ر.س</span>
+                            <span className="text-sm font-black text-[#10b981]">{profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
                             <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
                           </div>
                         </div>
@@ -750,21 +750,21 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                               </span>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("en-US")} ر.س</div>
+                              <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</div>
                               {op.downPayment > 0 && (
                                 <div className="text-[10px] text-amber-600 font-bold mt-0.5">
-                                  الدفعة الأولى: {op.downPayment.toLocaleString("en-US")} ر.س
+                                  الدفعة الأولى: {op.downPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                                 </div>
                               )}
                             </td>
-                            <td className="py-4 px-4 font-bold text-neutral-800 text-[13px]">{(op.totalInstallmentAmount || 0).toLocaleString("en-US")} ر.س</td>
+                            <td className="py-4 px-4 font-bold text-neutral-800 text-[13px]">{(op.totalInstallmentAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</td>
                             <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">
-                              <div>{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</div>
+                              <div>{(fee > 0 ? `-${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</div>
                             </td>
-                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
+                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</td>
                             <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">
                               <div className="flex items-center gap-1.5 justify-end">
-                                <span>{Math.round(profit).toLocaleString("en-US")} <span className="text-[10px] font-bold">ر.س</span></span>
+                                <span>{profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-bold">ر.س</span></span>
                                 <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
                               </div>
                             </td>

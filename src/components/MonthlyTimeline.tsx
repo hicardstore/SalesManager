@@ -409,7 +409,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
             <span className={`text-3xl lg:text-4xl font-black tracking-tight ${
               selectedMetric === "sales" ? "text-blue-600" : "text-emerald-600"
             }`}>
-              {(selectedMetric === "sales" ? aggregateStats.totalSales : aggregateStats.totalProfit).toLocaleString()}
+              {(selectedMetric === "sales" ? aggregateStats.totalSales : aggregateStats.totalProfit).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-sm font-black text-neutral-400">ريال سعودي</span>
           </div>
@@ -496,7 +496,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
                   <div className="bg-white border border-neutral-200 px-2 py-0.5 rounded-lg text-center">
                     <span className="block text-[7.5px] font-black text-neutral-400">إجمالي الأسبوع</span>
                     <span className="text-[9.5px] font-black font-mono text-neutral-800">
-                      {targetWeekVal.toLocaleString()} ر.س
+                      {targetWeekVal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                     </span>
                   </div>
                 </div>
@@ -619,7 +619,7 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
               <div>
                 <span className="block text-[10px] font-black text-neutral-400">إجمالي قيمة مبيعات اليوم</span>
                 <span className="text-xs font-black text-neutral-800">
-                  {selectedDayData.sales.toLocaleString()} ريال
+                  {selectedDayData.sales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال
                 </span>
               </div>
             </div>
@@ -643,12 +643,12 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
           <div className="bg-neutral-50 border border-neutral-200/30 p-4 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex items-center justify-between text-xs font-bold border-b sm:border-b-0 sm:border-l border-neutral-200/60 pb-2 sm:pb-0 pl-0 sm:pl-4">
               <span className="text-neutral-400">متوسط قيمة الطلب الفردي (AOV)</span>
-              <span className="text-neutral-900 font-black">{selectedDayData.averageOrder.toLocaleString()} ريال</span>
+              <span className="text-neutral-900 font-black">{selectedDayData.averageOrder.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال</span>
             </div>
             <div className="flex items-center justify-between text-xs font-bold pt-2 sm:pt-0 pr-0 sm:pr-4">
               <span className="text-neutral-400">صافي أرباح التاجر المحققة لليوم</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString()} ريال</span>
+                <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال</span>
                 <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{selectedDayData.sales > 0 ? ((selectedDayData.profit / selectedDayData.sales) * 100).toFixed(1) : "0.0"}%</span>
               </div>
             </div>
