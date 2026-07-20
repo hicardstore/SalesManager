@@ -609,37 +609,79 @@ export function Settings({
                 const currentRate = activeProject.customRates?.[provider] !== undefined 
                   ? activeProject.customRates[provider] 
                   : 6.99;
+                const currentFlatFee = activeProject.customFlatFees?.[provider] !== undefined
+                  ? activeProject.customFlatFees[provider]
+                  : 1.50;
                 return (
-                  <div key={provider} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
-                    <span className="text-xs font-black text-neutral-700">{provider}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-neutral-500">%</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={currentRate}
-                        onChange={async (e) => {
-                          const val = parseFloat(e.target.value);
-                          if (isNaN(val)) return;
-                          
-                          // Save in Firestore
-                          const projectRef = doc(db, "projects", activeProject.id);
-                          const updatedRates = {
-                            ...(activeProject.customRates || {}),
-                            [provider]: val
-                          };
-                          try {
-                            await updateDoc(projectRef, {
-                              customRates: updatedRates
-                            });
-                          } catch (err) {
-                            console.error("Failed to update custom rates:", err);
-                          }
-                        }}
-                        className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
-                      />
+                  <div key={provider} className="p-4 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-3">
+                    <span className="text-xs font-black text-neutral-800 border-b border-neutral-100 pb-1.5">{provider}</span>
+                    
+                    {/* Rate (%) */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-neutral-400 font-bold">نسبة العمولة (%)</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-neutral-500">%</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={currentRate}
+                          onChange={async (e) => {
+                            const val = parseFloat(e.target.value);
+                            if (isNaN(val)) return;
+                            
+                            // Save in Firestore
+                            const projectRef = doc(db, "projects", activeProject.id);
+                            const updatedRates = {
+                              ...(activeProject.customRates || {}),
+                              [provider]: val
+                            };
+                            try {
+                              await updateDoc(projectRef, {
+                                customRates: updatedRates
+                              });
+                            } catch (err) {
+                              console.error("Failed to update custom rates:", err);
+                            }
+                          }}
+                          className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Flat Fee (SAR) */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-neutral-400 font-bold">الرسم الثابت (ر.س)</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-neutral-500">ر.س</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1000"
+                          value={currentFlatFee}
+                          onChange={async (e) => {
+                            const val = parseFloat(e.target.value);
+                            if (isNaN(val)) return;
+                            
+                            // Save in Firestore
+                            const projectRef = doc(db, "projects", activeProject.id);
+                            const updatedFlatFees = {
+                              ...(activeProject.customFlatFees || {}),
+                              [provider]: val
+                            };
+                            try {
+                              await updateDoc(projectRef, {
+                                customFlatFees: updatedFlatFees
+                              });
+                            } catch (err) {
+                              console.error("Failed to update custom flat fees:", err);
+                            }
+                          }}
+                          className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                        />
+                      </div>
                     </div>
                   </div>
                 );

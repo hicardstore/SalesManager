@@ -17,25 +17,30 @@ export interface CalculatedOperationBreakdown {
  * Centrally calculates the gateway provider fee (6.99% or custom rate) with high precision.
  */
 export function getOperationFee(
-  op: { packageAmount: number; provider: string },
+  op: { totalInstallmentAmount: number; provider: string },
   customRatesOrActiveProject?: { [key: string]: number } | any
 ): number {
   const normalizedProvider = (op.provider || "").trim();
   
-  // Extract customRates and taxRate from either the direct object or activeProject
-  let customRates = undefined;
+  // Extract customRates, customFlatFees and taxRate from either the direct object or activeProject
+  let customRates: Record<string, number> | undefined = undefined;
+  let customFlatFees: Record<string, number> | undefined = undefined;
   let taxRate = 15; // default 15%
 
   if (customRatesOrActiveProject) {
-    if (customRatesOrActiveProject.customRates !== undefined) {
+    if (
+      customRatesOrActiveProject.customRates !== undefined ||
+      customRatesOrActiveProject.customFlatFees !== undefined ||
+      customRatesOrActiveProject.taxRate !== undefined
+    ) {
       customRates = customRatesOrActiveProject.customRates;
+      customFlatFees = customRatesOrActiveProject.customFlatFees;
+      if (customRatesOrActiveProject.taxRate !== undefined) {
+        taxRate = customRatesOrActiveProject.taxRate;
+      }
     } else {
-      // It might be just the customRates object itself if it doesn't have a customRates property
+      // It might be just the customRates object itself
       customRates = customRatesOrActiveProject;
-    }
-
-    if (customRatesOrActiveProject.taxRate !== undefined) {
-      taxRate = customRatesOrActiveProject.taxRate;
     }
   }
 
@@ -43,9 +48,20 @@ export function getOperationFee(
     const rate = customRates && customRates[normalizedProvider] !== undefined
       ? customRates[normalizedProvider] / 100
       : 0.0699;
-    const baseFee = op.packageAmount * rate;
-    const taxAmount = baseFee * (taxRate / 100);
-    return Number((baseFee + taxAmount).toFixed(4));
+      
+    const flatFee = customFlatFees && customFlatFees[normalizedProvider] !== undefined
+      ? customFlatFees[normalizedProvider]
+      : 1.50;
+      
+    // Rule: Commission = (TransactionAmount × rate) + flatFee
+    // TransactionAmount must be totalInstallmentAmount
+    const transactionAmount = op.totalInstallmentAmount || 0;
+    const commission = (transactionAmount * rate) + flatFee;
+    const vat = commission * (taxRate / 100);
+    const totalGatewayFees = commission + vat;
+    
+    // Rule: Round to 2 decimal places using Round Half Up
+    return Math.round(totalGatewayFees * 100) / 100;
   }
   return 0;
 }
@@ -99,6 +115,7 @@ export function calculateOperationBreakdown(params: {
   provider: string;
   durationMonths?: number;
   customRates?: { [key: string]: number };
+  customFlatFees?: { [key: string]: number };
   taxRate?: number;
   activeProject?: any;
 }): CalculatedOperationBreakdown {
@@ -108,9 +125,13 @@ export function calculateOperationBreakdown(params: {
   const commissionFee = Math.max(0, params.commissionFee || 0);
   const durationMonths = params.durationMonths && params.durationMonths > 0 ? params.durationMonths : 12;
 
-  const configObj = params.activeProject || { customRates: params.customRates, taxRate: params.taxRate };
+  const configObj = params.activeProject || { 
+    customRates: params.customRates, 
+    customFlatFees: params.customFlatFees,
+    taxRate: params.taxRate 
+  };
 
-  const providerFee = getOperationFee({ packageAmount, provider: params.provider }, configObj);
+  const providerFee = getOperationFee({ totalInstallmentAmount, provider: params.provider }, configObj);
   const netTransferToClient = Math.max(0, Number((packageAmount - downPayment).toFixed(4)));
   const monthlyInstallment = Number((netTransferToClient / durationMonths).toFixed(2));
   const grossProfit = Number((totalInstallmentAmount - packageAmount).toFixed(4));

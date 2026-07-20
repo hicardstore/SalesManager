@@ -393,9 +393,14 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
             </div>
           </div>
           <div className="space-y-1 relative">
-            <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
-              <span>{stats.netProfitTotal.toLocaleString("en-US")}</span>
-              <span className="text-xs font-bold text-neutral-400">ر.س</span>
+            <div className="text-2xl font-black text-neutral-900 flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-baseline gap-1">
+                <span>{stats.netProfitTotal.toLocaleString("en-US")}</span>
+                <span className="text-xs font-bold text-neutral-400">ر.س</span>
+              </div>
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md font-bold">
+                {stats.installmentsTotal > 0 ? ((stats.netProfitTotal / stats.installmentsTotal) * 100).toFixed(1) : "0.0"}%
+              </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-[#10b981] font-bold">
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -695,7 +700,10 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                         {/* Bottom Highlight */}
                         <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
                           <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
-                          <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("en-US")} ر.س</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-black text-[#10b981]">{Math.round(profit).toLocaleString("en-US")} ر.س</span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -754,7 +762,12 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                               <div>{(fee > 0 ? `-${Math.round(fee)}` : "0")} ر.س</div>
                             </td>
                             <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee}` : "0")} ر.س</td>
-                            <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">{Math.round(profit).toLocaleString("en-US")} <span className="text-[10px] font-bold">ر.س</span></td>
+                            <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <span>{Math.round(profit).toLocaleString("en-US")} <span className="text-[10px] font-bold">ر.س</span></span>
+                                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}

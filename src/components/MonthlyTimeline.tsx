@@ -647,7 +647,10 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
             </div>
             <div className="flex items-center justify-between text-xs font-bold pt-2 sm:pt-0 pr-0 sm:pr-4">
               <span className="text-neutral-400">صافي أرباح التاجر المحققة لليوم</span>
-              <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString()} ريال</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-emerald-600 font-black">{selectedDayData.profit.toLocaleString()} ريال</span>
+                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{selectedDayData.sales > 0 ? ((selectedDayData.profit / selectedDayData.sales) * 100).toFixed(1) : "0.0"}%</span>
+              </div>
             </div>
           </div>
 

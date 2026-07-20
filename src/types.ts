@@ -20,6 +20,7 @@ export interface ProjectWorkspace {
   members: ProjectMember[];
   memberEmails?: string[];
   customRates?: Record<string, number>;
+  customFlatFees?: Record<string, number>;
   taxRate?: number;
   numberSystem?: string;
   currencySymbol?: string;

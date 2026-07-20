@@ -1144,6 +1144,9 @@ export default function FinanceDashboard({
                   {netProfit >= 0 ? "+" : ""}{netProfit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className="text-[10px] font-sans font-bold text-neutral-450">ر.س</span>
+                <span className={`mr-1.5 text-[9.5px] px-1.5 py-0.5 rounded-md font-bold ${netProfit >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+                  {totalInstallmentAmount > 0 ? ((netProfit / totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%
+                </span>
               </div>
               <p className="text-[8px] text-neutral-400 font-bold leading-none">صافي أرباح التاجر الصافية</p>
               <p className="text-[7px] text-emerald-600 font-extrabold">الدفعة الأولى يتحملها العميل</p>
@@ -1730,7 +1733,10 @@ export default function FinanceDashboard({
                           {(op.commissionFee || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </td>
                         <td className={`p-4 text-left font-black ${getOperationProfit(op) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                          {getOperationProfit(op).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                          <div>
+                            <span>{getOperationProfit(op).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
+                            <span className="block text-[10px] text-emerald-700/70 mt-0.5">{op.totalInstallmentAmount > 0 ? ((getOperationProfit(op) / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}% نسبة الأرباح</span>
+                          </div>
                         </td>
                         <td className="p-4 text-center">
                           <p className="font-black text-neutral-950 leading-none">{op.monthlyInstallment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p>
@@ -1840,8 +1846,9 @@ export default function FinanceDashboard({
                       </div>
                       <div className="space-y-1 col-span-2 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/40 text-center" dir="rtl">
                         <p className="text-[9px] text-emerald-700 font-extrabold">صافي أرباح التاجر النهائية المحققة</p>
-                        <p className="font-black text-emerald-700 text-sm mt-0.5">
-                          {getOperationProfit(op).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                        <p className="font-black text-emerald-700 text-sm mt-0.5 flex justify-center items-center gap-1.5">
+                          <span>{getOperationProfit(op).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md font-bold">{op.totalInstallmentAmount > 0 ? ((getOperationProfit(op) / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
                         </p>
                         <p className="text-[7.5px] text-neutral-400 mt-0.5 leading-relaxed">
                           * الدفعة الأولى يتحملها العميل ولا تخصم من أرباحك الصافية.
@@ -1993,8 +2000,9 @@ export default function FinanceDashboard({
                     </div>
                     <div className="space-y-1 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/40 col-span-2 text-center" dir="rtl">
                       <p className="text-[11px] text-[#059669] font-black">صافي أرباح التاجر النهائية</p>
-                      <p className="font-black text-emerald-700 text-2xl mt-1">
-                        {getOperationProfit(selectedOp).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                      <p className="font-black text-emerald-700 text-2xl mt-1 flex justify-center items-center gap-2">
+                        <span>{getOperationProfit(selectedOp).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-bold">{selectedOp.totalInstallmentAmount > 0 ? ((getOperationProfit(selectedOp) / selectedOp.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
                       </p>
                       <p className="text-[8px] text-neutral-500 mt-1 leading-relaxed">
                         * الدفعة الأولى يتحملها العميل بالكامل وبالتالي لا تخصم من أرباحك الصافية.
