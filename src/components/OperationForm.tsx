@@ -294,8 +294,8 @@ export default function OperationForm({
   });
 
   // Calculate profit margin percentage for the visual gauge
-  const profitMarginPercent = totalInstallmentAmount > 0 
-    ? Math.max(0, Math.min(100, Math.round((netProfit / totalInstallmentAmount) * 100))) 
+  const profitMarginPercent = (totalInstallmentAmount - providerFee) > 0 
+    ? Math.max(0, Math.min(100, Math.round((netProfit / (totalInstallmentAmount - providerFee)) * 100))) 
     : 0;
 
   // Presets handlers

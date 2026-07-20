@@ -702,7 +702,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                           <span className="text-[10px] font-black text-emerald-800">صافي ربح العملية:</span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-black text-[#10b981]">{profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
-                            <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{(op.totalInstallmentAmount - fee) > 0 ? ((profit / (op.totalInstallmentAmount - fee)) * 100).toFixed(1) : "0.0"}%</span>
                           </div>
                         </div>
                       </div>
@@ -765,7 +765,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                             <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">
                               <div className="flex items-center gap-1.5 justify-end">
                                 <span>{profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-bold">ر.س</span></span>
-                                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{op.totalInstallmentAmount > 0 ? ((profit / op.totalInstallmentAmount) * 100).toFixed(1) : "0.0"}%</span>
+                                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">{(op.totalInstallmentAmount - fee) > 0 ? ((profit / (op.totalInstallmentAmount - fee)) * 100).toFixed(1) : "0.0"}%</span>
                               </div>
                             </td>
                           </tr>
