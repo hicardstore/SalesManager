@@ -679,7 +679,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">إجمالي التمويل</span>
                             <span className="font-black text-neutral-800">{(op.totalInstallmentAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
                           </div>
-                          {op.downPayment > 0 && (
+                          {op.deductDownPaymentFromFunding !== false && op.downPayment > 0 && (
                             <div>
                               <span className="text-[10px] text-amber-600 font-bold block mb-0.5">الدفعة الأولى</span>
                               <span className="font-black text-amber-600">{op.downPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</span>
@@ -691,10 +691,12 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                             </span>
                             <span className="font-black text-red-500">{(fee > 0 ? `-${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</span>
                           </div>
+                          {op.enableCommissionFee !== false && (
                           <div>
                             <span className="text-[10px] text-neutral-400 font-bold block mb-0.5">العمولة المدفوعة</span>
                             <span className="font-black text-red-500">{(op.commissionFee > 0 ? `-${op.commissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</span>
                           </div>
+                        )}
                         </div>
 
                         {/* Bottom Highlight */}
@@ -751,7 +753,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                             </td>
                             <td className="py-4 px-4">
                               <div className="font-bold text-neutral-800 text-[13px]">{op.packageAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</div>
-                              {op.downPayment > 0 && (
+                              {op.deductDownPaymentFromFunding !== false && op.downPayment > 0 && (
                                 <div className="text-[10px] text-amber-600 font-bold mt-0.5">
                                   الدفعة الأولى: {op.downPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                                 </div>
@@ -761,7 +763,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
                             <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">
                               <div>{(fee > 0 ? `-${fee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</div>
                             </td>
-                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{(op.commissionFee > 0 ? `-${op.commissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00")} ر.س</td>
+                            <td className="py-4 px-4 font-bold text-rose-600 text-[13px]">{op.enableCommissionFee !== false ? (op.commissionFee > 0 ? `-${op.commissionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "0.00") : "0.00"} ر.س</td>
                             <td className="py-4 px-4 font-black text-[#10b981] text-[14px] text-right">
                               <div className="flex items-center gap-1.5 justify-end">
                                 <span>{profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] font-bold">ر.س</span></span>
