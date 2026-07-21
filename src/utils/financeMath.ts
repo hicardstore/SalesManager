@@ -118,6 +118,7 @@ export function calculateOperationBreakdown(params: {
   customFlatFees?: { [key: string]: number };
   taxRate?: number;
   activeProject?: any;
+  deductDownPaymentFromFunding?: boolean;
 }): CalculatedOperationBreakdown {
   const packageAmount = Math.max(0, params.packageAmount || 0);
   const totalInstallmentAmount = Math.max(0, params.totalInstallmentAmount || 0);
@@ -132,7 +133,10 @@ export function calculateOperationBreakdown(params: {
   };
 
   const providerFee = getOperationFee({ totalInstallmentAmount, provider: params.provider }, configObj);
-  const netTransferToClient = Math.max(0, Number((packageAmount - downPayment).toFixed(4)));
+  const deductDownPayment = params.deductDownPaymentFromFunding !== false;
+  const netTransferToClient = deductDownPayment 
+    ? Math.max(0, Number((packageAmount - downPayment).toFixed(4)))
+    : packageAmount;
   const monthlyInstallment = Number((netTransferToClient / durationMonths).toFixed(2));
   const grossProfit = Number((totalInstallmentAmount - packageAmount).toFixed(4));
   const profitWithDownPayment = getOperationProfitWithDownPayment({

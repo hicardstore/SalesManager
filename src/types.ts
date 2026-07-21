@@ -48,6 +48,8 @@ export interface Operation {
   advancePaidBy?: "كلنا" | "نواف" | "عبدالله";
   downPaymentPaidBy?: "العميل" | "كلنا" | "نواف" | "عبدالله";
   transferFeePaidBy?: "كلنا" | "نواف" | "عبدالله";
+  deductDownPaymentFromFunding?: boolean;
+  enableCommissionFee?: boolean;
 }
 
 export interface FinancialStats {

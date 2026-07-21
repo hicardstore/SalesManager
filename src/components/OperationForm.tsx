@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { InstallmentProvider, PREDEFINED_GROUPS, PredefinedGroup, OperationStatus } from "../types";
 import { calculateOperationBreakdown, getOperationFee } from "../utils/financeMath";
@@ -26,6 +26,27 @@ import {
   Calendar
 } from "lucide-react";
 
+function getStickyValue<T>(key: string, defaultValue: T): T {
+  try {
+    const stickyValue = window.localStorage.getItem(key);
+    return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+  } catch (err) {
+    return defaultValue;
+  }
+}
+
+function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => getStickyValue(key, defaultValue));
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {}
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
 interface OperationFormProps {
   onAddOperation: (payload: any) => Promise<boolean>;
   onNavigateToDashboard: () => void;
@@ -44,7 +65,7 @@ export default function OperationForm({
   onCancelEdit
 }: OperationFormProps) {
   // 1. Provider State
-  const [provider, setProvider] = useState<InstallmentProvider>("إمكان");
+  const [provider, setProvider] = useStickyState<InstallmentProvider>("إمكان", "opForm_provider");
 
   // 2. Group State
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -56,11 +77,13 @@ export default function OperationForm({
   // 3. Down Payment State
   const [downPayment, setDownPayment] = useState<string>("");
   const [commissionFee, setCommissionFee] = useState<string>("");
+  const [deductDownPaymentFromFunding, setDeductDownPaymentFromFunding] = useStickyState<boolean>(true, "opForm_deductDownPaymentFromFunding");
+  const [enableCommissionFee, setEnableCommissionFee] = useStickyState<boolean>(true, "opForm_enableCommissionFee");
 
   // Partner Tracking State variables
-  const [advancePaidBy, setAdvancePaidBy] = useState<"كلنا" | "نواف" | "عبدالله">("كلنا");
-  const [downPaymentPaidBy, setDownPaymentPaidBy] = useState<"العميل" | "كلنا" | "نواف" | "عبدالله">("العميل");
-  const [transferFeePaidBy, setTransferFeePaidBy] = useState<"كلنا" | "نواف" | "عبدالله">("كلنا");
+  const [advancePaidBy, setAdvancePaidBy] = useStickyState<"كلنا" | "نواف" | "عبدالله">("كلنا", "opForm_advancePaidBy");
+  const [downPaymentPaidBy, setDownPaymentPaidBy] = useStickyState<"العميل" | "كلنا" | "نواف" | "عبدالله">("العميل", "opForm_downPaymentPaidBy");
+  const [transferFeePaidBy, setTransferFeePaidBy] = useStickyState<"كلنا" | "نواف" | "عبدالله">("كلنا", "opForm_transferFeePaidBy");
 
   // 4. Date State (Mandatory)
   const [operationDate, setOperationDate] = useState<string>("");
@@ -92,6 +115,8 @@ export default function OperationForm({
       setOperationDate(formatDateForInput(editingOperation.date));
       setClientName(editingOperation.clientName || "");
       setStatus(editingOperation.status || "مكتمل");
+      setDeductDownPaymentFromFunding(editingOperation.deductDownPaymentFromFunding !== false);
+      setEnableCommissionFee(editingOperation.enableCommissionFee !== undefined ? editingOperation.enableCommissionFee : (editingOperation.commissionFee ? editingOperation.commissionFee > 0 : false));
       
       // Match predefined group
       const matchingGroup = PREDEFINED_GROUPS.find(
@@ -113,17 +138,19 @@ export default function OperationForm({
       setOperationDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
       
       // Reset form on transition to create mode
-      setProvider("إمكان");
+      setProvider(getStickyValue<InstallmentProvider>("opForm_provider", "إمكان"));
       setSelectedGroupId(PREDEFINED_GROUPS[0]?.id || "3000");
       setDownPayment("");
       setCommissionFee("");
       setCustomPackageAmount("");
       setCustomTotalInstallmentAmount("");
-      setAdvancePaidBy("كلنا");
-      setDownPaymentPaidBy("العميل");
-      setTransferFeePaidBy("كلنا");
+      setAdvancePaidBy(getStickyValue<"كلنا" | "نواف" | "عبدالله">("opForm_advancePaidBy", "كلنا"));
+      setDownPaymentPaidBy(getStickyValue<"العميل" | "كلنا" | "نواف" | "عبدالله">("opForm_downPaymentPaidBy", "العميل"));
+      setTransferFeePaidBy(getStickyValue<"كلنا" | "نواف" | "عبدالله">("opForm_transferFeePaidBy", "كلنا"));
       setClientName("");
       setStatus("مكتمل");
+      setDeductDownPaymentFromFunding(getStickyValue<boolean>("opForm_deductDownPaymentFromFunding", true));
+      setEnableCommissionFee(getStickyValue<boolean>("opForm_enableCommissionFee", true));
     }
   }, [editingOperation]);
 
@@ -155,7 +182,7 @@ export default function OperationForm({
     : (selectedGroup ? selectedGroup.totalInstallmentAmount : 0);
 
   const parsedDownPayment = Math.max(0, parseFloat(downPayment) || 0);
-  const parsedCommissionFee = Math.max(0, parseFloat(commissionFee) || 0);
+  const parsedCommissionFee = enableCommissionFee ? Math.max(0, parseFloat(commissionFee) || 0) : 0;
   
   const breakdown = calculateOperationBreakdown({
     packageAmount,
@@ -164,7 +191,8 @@ export default function OperationForm({
     commissionFee: parsedCommissionFee,
     provider,
     durationMonths: 12,
-    activeProject
+    activeProject,
+    deductDownPaymentFromFunding
   });
 
   const netTransferToClient = breakdown.netTransferToClient;
@@ -240,7 +268,9 @@ export default function OperationForm({
       monthlyInstallment,
       advancePaidBy,
       downPaymentPaidBy,
-      transferFeePaidBy
+      transferFeePaidBy,
+      deductDownPaymentFromFunding,
+      enableCommissionFee
     };
 
     try {
@@ -709,103 +739,130 @@ export default function OperationForm({
               <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">3</span>
               <h3 className="text-xs font-black text-neutral-900">خصم الدفعة الأولى من التمويل</h3>
             </div>
-            <span className="text-[10px] text-neutral-400 font-bold">يتحملها العميل ولا تخصم من أرباحك الصافية</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Decrement Button */}
-            <button
-              type="button"
-              onClick={() => adjustDownPayment(-100)}
-              className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-
-            {/* Input Field */}
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none text-neutral-400">
-                <Banknote className="w-4 h-4" />
-              </div>
-              <input
-                type="number"
-                inputMode="decimal"
-                lang="en"
-                placeholder="0.00"
-                value={downPayment}
-                onChange={(e) => setDownPayment(e.target.value)}
-                className="w-full text-base h-11 px-3 pr-10 text-center font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 font-bold">ر.س</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-neutral-500 font-bold">خصم من رأس المال؟</span>
+              <button
+                type="button"
+                onClick={() => setDeductDownPaymentFromFunding(!deductDownPaymentFromFunding)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  deductDownPaymentFromFunding ? "bg-neutral-950" : "bg-neutral-200"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    deductDownPaymentFromFunding ? "-translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
-
-            {/* Increment Button */}
-            <button
-              type="button"
-              onClick={() => adjustDownPayment(100)}
-              className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Quick Presets Buttons (UX Enhancement) */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            <span className="text-[9px] text-neutral-400 font-bold ml-1">اختصار سريع:</span>
-            <button
-              type="button"
-              onClick={() => handleApplyDownPaymentPreset(0)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              بون دفعة (0 ر.س)
-            </button>
-            <button
-              type="button"
-              disabled={packageAmount <= 0}
-              onClick={() => handleApplyDownPaymentPreset(10, true)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
-            >
-              10% من قيمة الكاش
-            </button>
-            <button
-              type="button"
-              disabled={packageAmount <= 0}
-              onClick={() => handleApplyDownPaymentPreset(20, true)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
-            >
-              20% من قيمة الكاش
-            </button>
-          </div>
-
-          {/* Partner selection section for "من دفع الدفعة الأولى" */}
-          <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
-                <Banknote className="w-3.5 h-3.5 text-neutral-500" />
-                من دفع الدفعة الأولى؟
-              </span>
-              <span className="text-[9px] text-neutral-400 font-bold">الافتراضي "العميل" (لا يدخل برأس مال الشركاء)</span>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {(["العميل", "كلنا", "نواف", "عبدالله"] as const).map((payer) => {
-                const isSelected = downPaymentPaidBy === payer;
-                return (
+          <AnimatePresence initial={false}>
+            {deductDownPaymentFromFunding && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4 overflow-hidden"
+              >
+                <div className="flex items-center gap-2">
+                  {/* Decrement Button */}
                   <button
-                    key={payer}
                     type="button"
-                    onClick={() => setDownPaymentPaidBy(payer)}
-                    className={`py-2 px-1.5 rounded-xl border text-center text-[10.5px] font-black transition-all cursor-pointer truncate ${
-                      isSelected
-                        ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
-                        : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
-                    }`}
+                    onClick={() => adjustDownPayment(-100)}
+                    className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
                   >
-                    {payer}
+                    <Minus className="w-4 h-4" />
                   </button>
-                );
-              })}
-            </div>
-          </div>
+
+                  {/* Input Field */}
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none text-neutral-400">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      lang="en"
+                      placeholder="0.00"
+                      value={downPayment}
+                      onChange={(e) => setDownPayment(e.target.value)}
+                      className="w-full text-base h-11 px-3 pr-10 text-center font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white"
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 font-bold">ر.س</span>
+                  </div>
+
+                  {/* Increment Button */}
+                  <button
+                    type="button"
+                    onClick={() => adjustDownPayment(100)}
+                    className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Quick Presets Buttons (UX Enhancement) */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[9px] text-neutral-400 font-bold ml-1">اختصار سريع:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyDownPaymentPreset(0)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    بون دفعة (0 ر.س)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={packageAmount <= 0}
+                    onClick={() => handleApplyDownPaymentPreset(10, true)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
+                  >
+                    10% من قيمة الكاش
+                  </button>
+                  <button
+                    type="button"
+                    disabled={packageAmount <= 0}
+                    onClick={() => handleApplyDownPaymentPreset(20, true)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
+                  >
+                    20% من قيمة الكاش
+                  </button>
+                </div>
+
+                {/* Partner selection section for "من دفع الدفعة الأولى" */}
+                <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
+                      <Banknote className="w-3.5 h-3.5 text-neutral-500" />
+                      من دفع الدفعة الأولى؟
+                    </span>
+                    <span className="text-[9px] text-neutral-400 font-bold">الافتراضي "العميل" (لا يدخل برأس مال الشركاء)</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(["العميل", "كلنا", "نواف", "عبدالله"] as const).map((payer) => {
+                      const isSelected = downPaymentPaidBy === payer;
+                      return (
+                        <button
+                          key={payer}
+                          type="button"
+                          onClick={() => setDownPaymentPaidBy(payer)}
+                          className={`py-2 px-1.5 rounded-xl border text-center text-[10.5px] font-black transition-all cursor-pointer truncate ${
+                            isSelected
+                              ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                              : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                          }`}
+                        >
+                          {payer}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Step 4: Commission Fee - With Increments & Presets */}
@@ -815,108 +872,135 @@ export default function OperationForm({
               <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10.5px] font-black">4</span>
               <h3 className="text-xs font-black text-neutral-900">رسوم التحويل والعمولة</h3>
             </div>
-            <span className="text-[10px] text-neutral-400 font-bold">تسجيل أي عمولات أو رسوم تحويل إضافية</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Decrement Button */}
-            <button
-              type="button"
-              onClick={() => adjustCommission(-50)}
-              className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-
-            {/* Input Field */}
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none text-neutral-400">
-                <DollarSign className="w-4 h-4" />
-              </div>
-              <input
-                type="number"
-                inputMode="decimal"
-                lang="en"
-                placeholder="0.00"
-                value={commissionFee}
-                onChange={(e) => setCommissionFee(e.target.value)}
-                className="w-full text-base h-11 px-3 pr-10 text-center font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 font-bold">ر.س</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-neutral-500 font-bold">تفعيل الرسوم والعمولة؟</span>
+              <button
+                type="button"
+                onClick={() => setEnableCommissionFee(!enableCommissionFee)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  enableCommissionFee ? "bg-neutral-950" : "bg-neutral-200"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    enableCommissionFee ? "-translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
-
-            {/* Increment Button */}
-            <button
-              type="button"
-              onClick={() => adjustCommission(50)}
-              className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Quick Commission Presets */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            <span className="text-[9px] text-neutral-400 font-bold ml-1">اختصار سريع:</span>
-            <button
-              type="button"
-              onClick={() => handleApplyCommissionPreset(0)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              لا توجد عمولة (0)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyCommissionPreset(50)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              50 ر.س
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyCommissionPreset(100)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              100 ر.س
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApplyCommissionPreset(150)}
-              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              150 ر.س
-            </button>
-          </div>
-
-          {/* Partner selection section for "من دفع رسوم التحويل والعمولة" */}
-          <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
-                <Coins className="w-3.5 h-3.5 text-neutral-500" />
-                من دفع رسوم التحويل والعمولة؟
-              </span>
-              <span className="text-[9px] text-neutral-400 font-bold">يحدد من يتحمل الرسوم الإدارية أو التحويل</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {(["كلنا", "نواف", "عبدالله"] as const).map((payer) => {
-                const isSelected = transferFeePaidBy === payer;
-                return (
+          <AnimatePresence initial={false}>
+            {enableCommissionFee && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4 overflow-hidden"
+              >
+                <div className="flex items-center gap-2">
+                  {/* Decrement Button */}
                   <button
-                    key={payer}
                     type="button"
-                    onClick={() => setTransferFeePaidBy(payer)}
-                    className={`py-2 px-3 rounded-xl border text-center text-xs font-black transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
-                        : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
-                    }`}
+                    onClick={() => adjustCommission(-50)}
+                    className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
                   >
-                    {payer}
+                    <Minus className="w-4 h-4" />
                   </button>
-                );
-              })}
-            </div>
-          </div>
+
+                  {/* Input Field */}
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none text-neutral-400">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      lang="en"
+                      placeholder="0.00"
+                      value={commissionFee}
+                      onChange={(e) => setCommissionFee(e.target.value)}
+                      className="w-full text-base h-11 px-3 pr-10 text-center font-black rounded-xl border border-neutral-200 outline-none focus:border-neutral-950 bg-white"
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 font-bold">ر.س</span>
+                  </div>
+
+                  {/* Increment Button */}
+                  <button
+                    type="button"
+                    onClick={() => adjustCommission(50)}
+                    className="w-11 h-11 rounded-xl border border-neutral-200 hover:border-neutral-400 flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Quick Commission Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[9px] text-neutral-400 font-bold ml-1">اختصار سريع:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCommissionPreset(0)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    لا توجد عمولة (0)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCommissionPreset(50)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    50 ر.س
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCommissionPreset(100)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    100 ر.س
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCommissionPreset(150)}
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-[9.5px] font-black text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    150 ر.س
+                  </button>
+                </div>
+
+                {/* Partner selection section for "من دفع رسوم التحويل والعمولة" */}
+                <div className="pt-3 border-t border-neutral-100/70 mt-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-black text-neutral-800 flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5 text-neutral-500" />
+                      من دفع رسوم التحويل والعمولة؟
+                    </span>
+                    <span className="text-[9px] text-neutral-400 font-bold">يحدد من يتحمل الرسوم الإدارية أو التحويل</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["كلنا", "نواف", "عبدالله"] as const).map((payer) => {
+                      const isSelected = transferFeePaidBy === payer;
+                      return (
+                        <button
+                          key={payer}
+                          type="button"
+                          onClick={() => setTransferFeePaidBy(payer)}
+                          className={`py-2 px-3 rounded-xl border text-center text-xs font-black transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-neutral-950 text-white border-neutral-950 shadow-xs"
+                              : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200"
+                          }`}
+                        >
+                          {payer}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Step 5: Transaction Date & Time - REQUIRED */}
@@ -1120,7 +1204,9 @@ export default function OperationForm({
                 </div>
 
                 <div className="border-b border-neutral-100 pb-2.5">
-                  <p className="text-[9.5px] text-neutral-400 font-bold">الصافي للعميل بعد خصم الدفعة الأولى</p>
+                  <p className="text-[9.5px] text-neutral-400 font-bold">
+                    {deductDownPaymentFromFunding ? "الصافي للعميل بعد خصم الدفعة الأولى" : "الصافي المحول للعميل (رأس المال)"}
+                  </p>
                   <p className="text-sm font-black text-amber-600 font-mono mt-0.5">
                     {netTransferToClient.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                   </p>
@@ -1187,7 +1273,7 @@ export default function OperationForm({
               </>
             ) : (
               <>
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="w-5 h-5" />
                 <span>{editingOperation ? "تأكيد وحفظ تعديلات العملية" : "تأكيد وتسجيل عملية البيع بالسجلات"}</span>
               </>
             )}

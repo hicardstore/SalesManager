@@ -664,6 +664,11 @@ function MainApp() {
           monthlyInstallment: Number(opToBackup.monthlyInstallment) || 0,
           durationMonths: Number(opToBackup.durationMonths) || 0,
           commissionFee: Number(opToBackup.commissionFee || 0),
+          advancePaidBy: opToBackup.advancePaidBy || "كلنا",
+          downPaymentPaidBy: opToBackup.downPaymentPaidBy || "العميل",
+          transferFeePaidBy: opToBackup.transferFeePaidBy || "كلنا",
+          deductDownPaymentFromFunding: opToBackup.deductDownPaymentFromFunding !== false,
+          enableCommissionFee: opToBackup.enableCommissionFee !== false,
           userId: user.id
         };
         const deletedDocRef = doc(db, "projects", activeProject.id, "deleted_operations", opId);
@@ -714,6 +719,11 @@ function MainApp() {
         monthlyInstallment: Number(opToRestore.monthlyInstallment) || 0,
         durationMonths: Number(opToRestore.durationMonths) || 0,
         commissionFee: Number(opToRestore.commissionFee || 0),
+        advancePaidBy: opToRestore.advancePaidBy || "كلنا",
+        downPaymentPaidBy: opToRestore.downPaymentPaidBy || "العميل",
+        transferFeePaidBy: opToRestore.transferFeePaidBy || "كلنا",
+        deductDownPaymentFromFunding: opToRestore.deductDownPaymentFromFunding !== false,
+        enableCommissionFee: opToRestore.enableCommissionFee !== false,
         userId: user.id,
         createdAt: serverTimestamp()
       };

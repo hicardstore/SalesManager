@@ -428,8 +428,10 @@ export default function FinanceDashboard({
       const dpP = op.downPaymentPaidBy || "العميل";
       const tfP = op.transferFeePaidBy || "كلنا";
 
-      // 1. سلفة العميل: (packageAmount - downPayment)
-      const advanceVal = Math.max(0, op.packageAmount - op.downPayment);
+      // 1. سلفة العميل: (packageAmount - downPayment) or packageAmount based on toggle
+      const advanceVal = op.deductDownPaymentFromFunding !== false 
+        ? Math.max(0, op.packageAmount - op.downPayment)
+        : op.packageAmount;
       if (statsMap[advP]) {
         statsMap[advP].advance += advanceVal;
       }
@@ -1445,7 +1447,7 @@ export default function FinanceDashboard({
                   const totalGroupSales = groupOps.reduce((sum, op) => sum + op.totalInstallmentAmount, 0);
                   const totalGroupNet = groupOps.reduce((sum, op) => sum + op.packageAmount, 0);
                   const totalGroupDown = groupOps.reduce((sum, op) => sum + op.downPayment, 0);
-                  const totalGroupTransfer = groupOps.reduce((sum, op) => sum + (op.packageAmount - op.downPayment), 0);
+                  const totalGroupTransfer = groupOps.reduce((sum, op) => sum + (op.deductDownPaymentFromFunding !== false ? (op.packageAmount - op.downPayment) : op.packageAmount), 0);
                   const totalGroupFees = groupOps.reduce((sum, op) => sum + getOperationFee(op), 0);
                   const totalGroupCommissions = groupOps.reduce((sum, op) => sum + (op.commissionFee || 0), 0);
                   const totalGroupProfitWithDown = totalGroupSales - totalGroupNet - totalGroupFees - totalGroupCommissions;
@@ -1842,9 +1844,11 @@ export default function FinanceDashboard({
                         </p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] text-neutral-400 font-bold text-center">الصافي للعميل بعد خصم الدفعة الأولى</p>
+                        <p className="text-[10px] text-neutral-400 font-bold text-center">
+                          {op.deductDownPaymentFromFunding !== false ? "الصافي للعميل بعد خصم الدفعة الأولى" : "الصافي المحول للعميل (رأس المال)"}
+                        </p>
                         <p className="font-black text-[#e88024] text-base">
-                          {Math.max(0, op.packageAmount - op.downPayment).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                          {(op.deductDownPaymentFromFunding !== false ? Math.max(0, op.packageAmount - op.downPayment) : op.packageAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                         </p>
                       </div>
 
@@ -2011,9 +2015,11 @@ export default function FinanceDashboard({
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[11px] text-neutral-400 font-bold text-center">الصافي للعميل بعد خصم الدفعة الأولى</p>
+                      <p className="text-[11px] text-neutral-400 font-bold text-center">
+                        {selectedOp.deductDownPaymentFromFunding !== false ? "الصافي للعميل بعد خصم الدفعة الأولى" : "الصافي المحول للعميل (رأس المال)"}
+                      </p>
                       <p className="font-black text-[#e88024] text-xl">
-                        {Math.max(0, selectedOp.packageAmount - selectedOp.downPayment).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
+                        {(selectedOp.deductDownPaymentFromFunding !== false ? Math.max(0, selectedOp.packageAmount - selectedOp.downPayment) : selectedOp.packageAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س
                       </p>
                     </div>
 
