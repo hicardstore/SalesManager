@@ -107,8 +107,8 @@ export default function OperationForm({
   React.useEffect(() => {
     if (editingOperation) {
       setProvider(editingOperation.provider || "إمكان");
-      setDownPayment(editingOperation.downPayment ? editingOperation.downPayment.toString() : "");
-      setCommissionFee(editingOperation.commissionFee ? editingOperation.commissionFee.toString() : "");
+      setDownPayment(editingOperation.downPayment !== undefined && editingOperation.downPayment !== null ? editingOperation.downPayment.toString() : "");
+      setCommissionFee(editingOperation.commissionFee !== undefined && editingOperation.commissionFee !== null ? editingOperation.commissionFee.toString() : "");
       setAdvancePaidBy(editingOperation.advancePaidBy || "كلنا");
       setDownPaymentPaidBy(editingOperation.downPaymentPaidBy || "العميل");
       setTransferFeePaidBy(editingOperation.transferFeePaidBy || "كلنا");
@@ -116,7 +116,7 @@ export default function OperationForm({
       setClientName(editingOperation.clientName || "");
       setStatus(editingOperation.status || "مكتمل");
       setDeductDownPaymentFromFunding(editingOperation.deductDownPaymentFromFunding !== false);
-      setEnableCommissionFee(editingOperation.enableCommissionFee !== undefined ? editingOperation.enableCommissionFee : (editingOperation.commissionFee ? editingOperation.commissionFee > 0 : false));
+      setEnableCommissionFee(editingOperation.enableCommissionFee !== undefined ? editingOperation.enableCommissionFee : (editingOperation.commissionFee !== undefined && editingOperation.commissionFee !== null ? editingOperation.commissionFee > 0 : false));
       
       // Match predefined group
       const matchingGroup = PREDEFINED_GROUPS.find(
@@ -128,8 +128,8 @@ export default function OperationForm({
         setCustomTotalInstallmentAmount("");
       } else {
         setSelectedGroupId("custom");
-        setCustomPackageAmount(editingOperation.packageAmount ? editingOperation.packageAmount.toString() : "");
-        setCustomTotalInstallmentAmount(editingOperation.totalInstallmentAmount ? editingOperation.totalInstallmentAmount.toString() : "");
+        setCustomPackageAmount(editingOperation.packageAmount !== undefined && editingOperation.packageAmount !== null ? editingOperation.packageAmount.toString() : "");
+        setCustomTotalInstallmentAmount(editingOperation.totalInstallmentAmount !== undefined && editingOperation.totalInstallmentAmount !== null ? editingOperation.totalInstallmentAmount.toString() : "");
       }
     } else {
       // Set default date to current local time for convenience if adding a new operation
@@ -261,6 +261,8 @@ export default function OperationForm({
       date: operationDate,
       packageAmount,
       downPayment: parsedDownPayment,
+      remainingAmount: totalInstallmentAmount - parsedDownPayment,
+      durationMonths: 12,
       commissionFee: parsedCommissionFee,
       provider,
       status: status,
