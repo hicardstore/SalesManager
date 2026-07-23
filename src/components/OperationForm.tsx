@@ -463,12 +463,14 @@ export default function OperationForm({
                   onClick={() => {
                     setProvider(prov);
                     const total = parseFloat(customTotalInstallmentAmount);
-                    const margin = activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
                     if (selectedGroupId === "custom" && !isNaN(total)) {
-                      const fee = getOperationFee({ totalInstallmentAmount: total, provider: prov }, activeProject);
-                      const amountAfterFees = Math.max(0, total - fee);
-                      const calculatedPackage = amountAfterFees * (1 - margin / 100);
-                      setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                      if (activeProject?.enableProfitMargin === true) {
+                        const margin = activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
+                        const fee = getOperationFee({ totalInstallmentAmount: total, provider: prov }, activeProject);
+                        const amountAfterFees = Math.max(0, total - fee);
+                        const calculatedPackage = amountAfterFees * (1 - margin / 100);
+                        setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                      }
                     }
                   }}
                   className={`py-4 px-3 rounded-xl border text-center font-black text-xs transition-all duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer h-22 relative overflow-hidden ${brandColorClass}`}
@@ -644,16 +646,20 @@ export default function OperationForm({
                   <Sliders className="w-4 h-4 text-neutral-600" />
                   <h4 className="text-xs font-black text-neutral-900">تخصيص مبالغ المجموعة التجارية</h4>
                 </div>
-                <div className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-black flex items-center gap-1 border border-emerald-100">
-                  <Percent className="w-3 h-3" />
-                  <span>هامش الربح المعتمد: {activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}%</span>
-                </div>
+                {activeProject?.enableProfitMargin === true && (
+                  <div className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-black flex items-center gap-1 border border-emerald-100">
+                    <Percent className="w-3 h-3" />
+                    <span>هامش الربح المعتمد: {activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}%</span>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] text-neutral-500 font-black block">صافي التمويل للعميل (سعر الكاش)</label>
-                    <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm">خصم تلقائي</span>
+                    {activeProject?.enableProfitMargin === true && (
+                      <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm">خصم تلقائي</span>
+                    )}
                   </div>
                   <div className="relative">
                     <input
@@ -684,14 +690,18 @@ export default function OperationForm({
                         const valStr = e.target.value;
                         setCustomTotalInstallmentAmount(valStr);
                         const total = parseFloat(valStr);
-                        const margin = activeProject?.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
                         if (!isNaN(total)) {
-                          const fee = getOperationFee({ totalInstallmentAmount: total, provider }, activeProject);
-                          const amountAfterFees = Math.max(0, total - fee);
-                          const calculatedPackage = amountAfterFees * (1 - margin / 100);
-                          setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                          if (activeProject?.enableProfitMargin === true) {
+                            const margin = activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30;
+                            const fee = getOperationFee({ totalInstallmentAmount: total, provider }, activeProject);
+                            const amountAfterFees = Math.max(0, total - fee);
+                            const calculatedPackage = amountAfterFees * (1 - margin / 100);
+                            setCustomPackageAmount(Number(calculatedPackage.toFixed(2)).toString());
+                          }
                         } else {
-                          setCustomPackageAmount("");
+                          if (activeProject?.enableProfitMargin === true) {
+                            setCustomPackageAmount("");
+                          }
                         }
                       }}
                       className="w-full h-11 px-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs text-center font-black focus:border-neutral-950 transition-colors"

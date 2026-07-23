@@ -718,32 +718,67 @@ export function Settings({
 
               {/* Profit Margin Setting */}
               <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-100 flex flex-col gap-2">
-                <span className="text-xs font-black text-neutral-700">نسبة هامش الربح الافتراضية (%)</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-neutral-500">%</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}
-                    onChange={async (e) => {
-                      const val = parseFloat(e.target.value);
-                      if (isNaN(val)) return;
-                      
-                      // Save in Firestore
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-neutral-700">نسبة هامش الربح الافتراضية (%)</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newVal = !(activeProject.enableProfitMargin === true);
                       const projectRef = doc(db, "projects", activeProject.id);
                       try {
                         await updateDoc(projectRef, {
-                          profitMarginPercent: val
+                          enableProfitMargin: newVal
                         });
                       } catch (err) {
-                        console.error("Failed to update profit margin percent:", err);
+                        console.error("Failed to update enableProfitMargin:", err);
                       }
                     }}
-                    className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
-                  />
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      activeProject.enableProfitMargin === true ? "bg-neutral-950" : "bg-neutral-200"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        activeProject.enableProfitMargin === true ? "-translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
                 </div>
+                
+                <AnimatePresence>
+                  {activeProject.enableProfitMargin === true && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex items-center gap-2 overflow-hidden"
+                    >
+                      <span className="text-xs font-bold text-neutral-500">%</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={activeProject.profitMarginPercent !== undefined ? activeProject.profitMarginPercent : 30}
+                        onChange={async (e) => {
+                          const val = parseFloat(e.target.value);
+                          if (isNaN(val)) return;
+                          
+                          // Save in Firestore
+                          const projectRef = doc(db, "projects", activeProject.id);
+                          try {
+                            await updateDoc(projectRef, {
+                              profitMarginPercent: val
+                            });
+                          } catch (err) {
+                            console.error("Failed to update profit margin percent:", err);
+                          }
+                        }}
+                        className="w-full text-left font-black text-xs px-3 py-2 bg-white border border-neutral-200 rounded-lg outline-none focus:border-neutral-950"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
