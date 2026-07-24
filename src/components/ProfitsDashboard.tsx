@@ -381,7 +381,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
         {/* Card 1: Net profit */}
         <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
@@ -409,13 +409,53 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
           </div>
         </div>
 
-        {/* Card 2: Total Package Capital */}
+        {/* Card 2: Total Sales Before Discount */}
         <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
           <div className="flex items-center justify-between mb-3 relative">
-            <span className="text-xs font-bold text-neutral-500">مجموع باقات البيع (رأس المال)</span>
+            <span className="text-xs font-bold text-neutral-500">إجمالي المبيعات (قبل الخصم)</span>
             <div className="p-2 bg-blue-500/10 text-blue-600 rounded-xl">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1 relative">
+            <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
+              <span>{stats.installmentsTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-xs font-bold text-neutral-400">ر.س</span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-blue-600 font-bold">
+              <span>مجموع إجمالي التمويلات المسجلة</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Total Sales After Discount */}
+        <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+          <div className="flex items-center justify-between mb-3 relative">
+            <span className="text-xs font-bold text-neutral-500">إجمالي المبيعات (بعد الخصم)</span>
+            <div className="p-2 bg-teal-500/10 text-teal-600 rounded-xl">
               <Receipt className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1 relative">
+            <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
+              <span>{(stats.installmentsTotal - stats.providerFeesTotal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-xs font-bold text-neutral-400">ر.س</span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-teal-600 font-bold">
+              <span>بعد خصم رسوم مزودي الخدمة</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Total Capital */}
+        <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+          <div className="flex items-center justify-between mb-3 relative">
+            <span className="text-xs font-bold text-neutral-500">مجموع رأس المال</span>
+            <div className="p-2 bg-indigo-500/10 text-indigo-600 rounded-xl">
+              <Coins className="w-4 h-4" />
             </div>
           </div>
           <div className="space-y-1 relative">
@@ -423,36 +463,17 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
               <span>{stats.salesTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="text-xs font-bold text-neutral-400">ر.س</span>
             </div>
-            <div className="flex items-center gap-1 text-[11px] text-blue-600 font-bold">
+            <div className="flex items-center gap-1 text-[11px] text-indigo-600 font-bold">
               <span>{stats.count} عمليات تمويل مسجلة</span>
             </div>
           </div>
         </div>
-        {/* Card 2.5: Total Package Capital After Merchant Fees */}
-        <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-          <div className="flex items-center justify-between mb-3 relative">
-            <span className="text-xs font-bold text-neutral-500">رأس المال (بعد الخصم)</span>
-            <div className="p-2 bg-blue-500/10 text-blue-600 rounded-xl">
-              <Receipt className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="space-y-1 relative">
-            <div className="text-2xl font-black text-neutral-900 flex items-baseline gap-1">
-              <span>{(stats.salesTotal - stats.providerFeesTotal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-bold text-neutral-400">ر.س</span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-blue-600 font-bold">
-              <span>بعد خصم رسوم التاجر</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Card 3: Service Provider Fees */}
+        {/* Card 5: Service Provider Fees */}
         <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
           <div className="flex items-center justify-between mb-3 relative">
-            <span className="text-xs font-bold text-neutral-500">رسوم مزودي الخدمة (6.99%)</span>
+            <span className="text-xs font-bold text-neutral-500">رسوم مزودي الخدمة</span>
             <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
               <Building className="w-4 h-4" />
             </div>
@@ -468,7 +489,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
           </div>
         </div>
 
-        {/* Card 4: Profit Margin Ratio */}
+        {/* Card 6: Profit Margin Ratio */}
         <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-[0px_4px_25px_rgba(0,0,0,0.01)] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
           <div className="flex items-center justify-between mb-3 relative">
