@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Operation, ProjectWorkspace } from "./types";
 import OperationForm from "./components/OperationForm";
 import FinanceDashboard from "./components/FinanceDashboard";
@@ -798,7 +798,7 @@ function MainApp() {
       {/* Main Container Workspace */}
       <main className="px-4 lg:px-8 py-8 max-w-5xl lg:max-w-7xl mx-auto">
         <div className="relative font-sans">
-          {activeTab === "create" && (
+          <div className={activeTab === "create" ? "block" : "hidden"}>
             <OperationForm 
               onAddOperation={handleAddOperation}
               onNavigateToDashboard={() => {
@@ -813,9 +813,9 @@ function MainApp() {
                 setActiveTab("dashboard");
               }}
             />
-          )}
+          </div>
           
-          {activeTab === "dashboard" && (
+          <div className={activeTab === "dashboard" ? "block" : "hidden"}>
             <div className="space-y-6">
               {/* Premium Sub-tab Switcher */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.01)] gap-4" dir="rtl">
@@ -879,23 +879,23 @@ function MainApp() {
                 />
               )}
             </div>
-          )}
+          </div>
 
-          {activeTab === "profits" && (
+          <div className={activeTab === "profits" ? "block" : "hidden"}>
             <ProfitsDashboard 
               operations={operations} 
               activeProject={activeProject}
             />
-          )}
+          </div>
 
-          {activeTab === "settings" && (
+          <div className={activeTab === "settings" ? "block" : "hidden"}>
             <Settings 
               onLogoutReq={() => setShowLogoutConfirm(true)} 
               activeProject={activeProject}
               devices={devices}
               onDeleteDevice={handleDeleteDevice}
             />
-          )}
+          </div>
         </div>
       </main>
 

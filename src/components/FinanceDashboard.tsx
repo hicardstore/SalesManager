@@ -305,7 +305,7 @@ export default function FinanceDashboard({
 
   // Date filtering logic
   const filteredByDate = operations.filter(op => {
-    const rawDate = op.date || (op as any).createdAt;
+    const rawDate = op.date;
     if (!rawDate) return false;
     const opDate = new Date(rawDate);
     
@@ -473,14 +473,14 @@ export default function FinanceDashboard({
   // Trend Data for visual SVG chart
   const trendData = React.useMemo(() => {
     const sortedOps = [...filteredOperations].sort((a, b) => {
-      const dateA = new Date(a.date || (a as any).createdAt).getTime();
-      const dateB = new Date(b.date || (b as any).createdAt).getTime();
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
       return dateA - dateB;
     });
 
     const grouped: { [key: string]: { sales: number; profit: number; count: number } } = {};
     sortedOps.forEach(op => {
-      const d = new Date(op.date || (op as any).createdAt);
+      const d = new Date(op.date);
       const dateStr = formatDate(d, activeProject, {
         month: "short",
         day: "numeric",
@@ -605,8 +605,8 @@ export default function FinanceDashboard({
       return `M 0 ${height / 2} L ${width} ${height / 2}`;
     }
     const sortedOps = [...filteredByDate].sort((a, b) => {
-      const dateA = new Date(a.date || (a as any).createdAt).getTime();
-      const dateB = new Date(b.date || (b as any).createdAt).getTime();
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
       return dateA - dateB;
     });
 
@@ -1701,7 +1701,7 @@ export default function FinanceDashboard({
                               {op.id}
                             </span>
                             <span className="text-[9.5px] text-neutral-400 font-bold block whitespace-nowrap">
-                              {formatDate(op.date || (op as any).createdAt, activeProject, {
+                              {formatDate(op.date, activeProject, {
                                 year: "numeric",
                                 month: "2-digit",
                                 day: "2-digit",
@@ -1808,7 +1808,7 @@ export default function FinanceDashboard({
                           {op.id}
                         </span>
                         <span className="text-[9px] text-neutral-400 font-bold block">
-                          {formatDate(op.date || (op as any).createdAt, activeProject, {
+                          {formatDate(op.date, activeProject, {
                             year: "numeric",
                             month: "2-digit",
                             day: "2-digit",
@@ -2111,7 +2111,7 @@ export default function FinanceDashboard({
                   <div className="flex justify-between items-center py-1.5 border-b border-neutral-50">
                     <span className="text-neutral-400">تاريخ ووقت تسجيل العملية</span>
                     <span className="text-neutral-500 font-bold text-[10.5px]">
-                      {formatDate(selectedOp.date || (selectedOp as any).createdAt, activeProject, {
+                      {formatDate(selectedOp.date, activeProject, {
                         year: "numeric",
                         month: "2-digit",
                         day: "2-digit",
