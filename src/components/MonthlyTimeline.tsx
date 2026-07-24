@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Operation } from "../types";
 import { getOperationFee, getOperationProfitWithDownPayment } from "../utils/financeMath";
+import SmoothAreaChart from "./SmoothAreaChart";
 
 interface MonthlyTimelineProps {
   operations?: Operation[];
@@ -443,6 +444,24 @@ export default function MonthlyTimeline({ operations = [], activeProject }: Mont
         </div>
 
       </div>
+
+      {/* Monthly Smooth Area Chart */}
+      {monthlyData.length > 0 && (
+        <SmoothAreaChart
+          data={monthlyData.map((d) => ({
+            label: `${d.day} ${selectedMonthYear.split(" ")[0]}`,
+            value: selectedMetric === "sales" ? d.sales : d.profit,
+            secondaryValue: d.fees,
+          }))}
+          lineColor="#059669"
+          gradientColor="#10b981"
+          title={`منحنى أداء ${selectedMetric === "sales" ? "المبيعات" : "الأرباح"} خلال ${selectedMonthYear}`}
+          subtitle="متابعة حركة المنحنى اليومي وفق التصميم الرسمي المعتمد"
+          badgeText={selectedMetric === "sales" ? "المبيعات اليومية" : "الأرباح اليومية"}
+          height={190}
+          valueFormatter={(v) => `${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س`}
+        />
+      )}
 
       {/* Daily Performance Section (Timeline Wrapper) */}
       <div className="bg-white rounded-3xl border border-neutral-200/60 p-6 shadow-xs space-y-4">

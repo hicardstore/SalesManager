@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { Operation, InstallmentProvider, PREDEFINED_GROUPS } from "../types";
+import SmoothAreaChart from "./SmoothAreaChart";
 import { 
   getOperationFee as getOperationFeeCentral, 
   getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral, 
@@ -782,252 +783,20 @@ export default function FinanceDashboard({
             </div>
           </div>
 
-          {/* Interactive SVG Graph Area */}
-          <div className="relative h-60 w-full pt-4">
-            {trendData.length === 0 && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[0.5px] rounded-2xl">
-                <span className="text-xs font-black text-neutral-500">لا توجد مبيعات مسجلة في هذه الفترة الزمنية</span>
-                <p className="text-[10px] text-neutral-400 mt-1">يرجى تسجيل عملية مبيعات جديدة لتحديث المنحنى التفاعلي</p>
-              </div>
-            )}
-
-            {/* Glassmorphic Custom Floating Tooltip */}
-            {hoveredPointIdx !== null && trendData[hoveredPointIdx] && (() => {
-              const totalPoints = trendData.length;
-              const idx = hoveredPointIdx;
-              const xPercent = totalPoints > 1 
-                ? (45 + (idx * (480 - 45) / (totalPoints - 1))) / 500 * 100
-                : 50;
-              const activeItem = trendData[idx];
-              const isLeft = xPercent > 50;
-
-              return (
-                <div 
-                  className="absolute z-30 pointer-events-none transition-all duration-150 animate-fadeIn"
-                  style={{ 
-                    left: `${xPercent}%`, 
-                    top: "0px",
-                    transform: `translateX(${isLeft ? "-110%" : "10%"})`,
-                  }}
-                >
-                  <div className="bg-white/95 backdrop-blur-md border border-neutral-200/80 rounded-2xl p-3 shadow-xl min-w-[155px] text-right space-y-1.5" dir="rtl">
-                    <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-                      <p className="text-[10px] text-neutral-450 font-black">{activeItem.date}</p>
-                      {!activeItem.isReal && (
-                        <span className="text-[8px] font-black bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded">توضيحي</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 justify-start">
-                      <div className={`w-2 h-2 rounded-full ${trendMetric === "sales" ? "bg-blue-500" : "bg-emerald-500"}`}></div>
-                      <span className="text-[10px] text-neutral-400 font-bold">
-                        {trendMetric === "sales" ? "مبيعات اليوم" : "أرباح اليوم"}
-                      </span>
-                    </div>
-                    <p className="text-xs font-black text-neutral-900 font-mono">
-                      {(trendMetric === "sales" ? activeItem.sales : activeItem.profit).toLocaleString("en-US", { useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: 0 })} <span className="text-[10px] text-neutral-400 font-sans font-normal">ر.س</span>
-                    </p>
-                    <div className="text-[9.5px] font-bold text-neutral-500">
-                      {activeItem.count.toLocaleString("en-US", { useGrouping: false })} عملية مبيعات مسجلة
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* SVG Elements */}
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 500 220" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={trendMetric === "sales" ? "#2563eb" : "#10b981"} stopOpacity="0.22"/>
-                  <stop offset="100%" stopColor={trendMetric === "sales" ? "#2563eb" : "#10b981"} stopOpacity="0.00"/>
-                </linearGradient>
-              </defs>
-
-              {/* Grid Lines (Y axis helper lines) */}
-              {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-                const y = 30 + (160 * ratio);
-                return (
-                  <g key={i}>
-                    <line 
-                      x1="45" 
-                      y1={y} 
-                      x2="480" 
-                      y2={y} 
-                      stroke="#f3f4f6" 
-                      strokeWidth="1" 
-                      strokeDasharray="4 6"
-                    />
-                    <text 
-                      x="35" 
-                      y={y + 3} 
-                      textAnchor="end" 
-                      className="text-[9px] font-mono fill-neutral-400 font-bold"
-                    >
-                      {Math.round((1 - ratio) * activeMetricMax).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 })}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Draw Area & Curved Lines with Linear Gradient */}
-              {trendData.length > 0 && (() => {
-                const totalPoints = trendData.length;
-                const points = trendData.map((item, idx) => {
-                  const x = totalPoints > 1 
-                    ? 45 + (idx * (480 - 45) / (totalPoints - 1))
-                    : 45 + (480 - 45) / 2;
-                  const val = trendMetric === "sales" ? item.sales : item.profit;
-                  const y = 190 - (val / activeMetricMax * 160);
-                  return { x, y };
-                });
-
-                const bezierLine = getBezierPath(points);
-                const areaD = points.length > 0 
-                  ? `${bezierLine} L ${points[points.length - 1].x} 190 L ${points[0].x} 190 Z`
-                  : "";
-
-                const activePt = hoveredPointIdx !== null ? points[hoveredPointIdx] : null;
-
-                return (
-                  <>
-                    {/* Intersection crosshair cursor guides */}
-                    {activePt && (
-                      <g className="animate-fadeIn">
-                        {/* Vertical line helper */}
-                        <line 
-                          x1={activePt.x} 
-                          y1="30" 
-                          x2={activePt.x} 
-                          y2="190" 
-                          stroke={trendMetric === "sales" ? "#93c5fd" : "#a7f3d0"} 
-                          strokeWidth="1.2" 
-                          strokeDasharray="3 3" 
-                        />
-                        {/* Horizontal line helper */}
-                        <line 
-                          x1="45" 
-                          y1={activePt.y} 
-                          x2="480" 
-                          y2={activePt.y} 
-                          stroke="#e5e7eb" 
-                          strokeWidth="1" 
-                          strokeDasharray="3 3" 
-                        />
-                      </g>
-                    )}
-
-                    {/* Gradient Area Fill */}
-                    {areaD && <path d={areaD} fill="url(#chartGrad)" className="transition-all duration-300" />}
-                    
-                    {/* Soft Glow Shadow behind primary line */}
-                    {bezierLine && (
-                      <path 
-                        d={bezierLine} 
-                        fill="none" 
-                        stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
-                        strokeWidth="6" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeOpacity="0.12" 
-                        className="transition-all duration-300"
-                      />
-                    )}
-
-                    {/* Primary Curve Line */}
-                    {bezierLine && (
-                      <path 
-                        d={bezierLine} 
-                        fill="none" 
-                        stroke={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
-                        strokeWidth="2.8" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        className="transition-all duration-300"
-                      />
-                    )}
-                    
-                    {/* Circle Vertex Nodes */}
-                    {points.map((p, idx) => {
-                      const isHovered = hoveredPointIdx === idx;
-                      return (
-                        <g key={idx}>
-                          {/* Inner glowing halo */}
-                          <circle 
-                            cx={p.x} 
-                            cy={p.y} 
-                            r={isHovered ? 6 : 3.5} 
-                            fill={trendMetric === "sales" ? "#2563eb" : "#059669"} 
-                            stroke="white" 
-                            strokeWidth={isHovered ? 2 : 1.5} 
-                            className="transition-all duration-150 cursor-pointer"
-                          />
-                          {isHovered && (
-                            <circle 
-                              cx={p.x} 
-                              cy={p.y} 
-                              r="11" 
-                              fill={trendMetric === "sales" ? "#3b82f6" : "#10b981"} 
-                              fillOpacity="0.18" 
-                              className="animate-ping" 
-                            />
-                          )}
-                        </g>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-
-              {/* Invisible Catcher columns for smooth hovering */}
-              {trendData.map((item, idx) => {
-                const totalPoints = trendData.length;
-                const colWidth = totalPoints > 1 ? (480 - 45) / totalPoints : 435;
-                const x = totalPoints > 1
-                  ? 45 + (idx * (480 - 45) / (totalPoints - 1)) - colWidth / 2
-                  : 45;
-                return (
-                  <rect
-                    key={idx}
-                    x={x}
-                    y="10"
-                    width={colWidth}
-                    height="190"
-                    fill="transparent"
-                    className="cursor-pointer"
-                    onMouseEnter={() => setHoveredPointIdx(idx)}
-                    onMouseLeave={() => setHoveredPointIdx(null)}
-                  />
-                );
-              })}
-
-              {/* Date labels under the chart */}
-              {trendData.map((item, idx) => {
-                const total = trendData.length;
-                let show = false;
-                if (total <= 6) {
-                  show = true;
-                } else if (total <= 12) {
-                  show = idx % 2 === 0;
-                } else {
-                  show = idx === 0 || idx === Math.floor(total / 2) || idx === total - 1 || idx % 3 === 0;
-                }
-                if (!show) return null;
-                const x = total > 1
-                  ? 45 + (idx * (480 - 45) / (total - 1))
-                  : 45 + (480 - 45) / 2;
-                return (
-                  <text
-                    key={idx}
-                    x={x}
-                    y="210"
-                    textAnchor="middle"
-                    className="text-[9px] font-black fill-neutral-400 font-sans"
-                  >
-                    {item.date}
-                  </text>
-                );
-              })}
-            </svg>
+          {/* Smooth Area Line Chart using official Design System */}
+          <div className="pt-2">
+            <SmoothAreaChart
+              data={trendData.map(item => ({
+                label: item.date,
+                value: trendMetric === "sales" ? item.sales : item.profit,
+                count: item.count,
+              }))}
+              lineColor="#059669"
+              gradientColor="#10b981"
+              height={220}
+              metricLabel={trendMetric === "sales" ? "مبيعات اليوم" : "أرباح اليوم"}
+              valueFormatter={(val) => `${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ر.س`}
+            />
           </div>
         </div>
 

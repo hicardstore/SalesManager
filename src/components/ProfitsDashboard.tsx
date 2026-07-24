@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Operation, InstallmentProvider } from "../types";
+import SmoothAreaChart from "./SmoothAreaChart";
 import { 
   getOperationFee as getOperationFeeCentral, 
   getOperationProfitWithDownPayment as getOperationProfitWithDownPaymentCentral,
@@ -531,82 +532,18 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
               <p className="text-xs font-bold">لا توجد عمليات مسجلة في هذا الشهر لتتبعها بيانيّاً</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* Custom SVG Line Chart */}
-              <div className="w-full h-44 bg-neutral-50/50 rounded-2xl relative overflow-hidden border border-neutral-100/50 p-2">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 600 150" preserveAspectRatio="none">
-                  {/* Grid Lines */}
-                  <line x1="0" y1="20" x2="600" y2="20" stroke="#f4f4f5" strokeWidth="1" strokeDasharray="4" />
-                  <line x1="0" y1="75" x2="600" y2="75" stroke="#f4f4f5" strokeWidth="1" strokeDasharray="4" />
-                  <line x1="0" y1="130" x2="600" y2="130" stroke="#f4f4f5" strokeWidth="1" strokeDasharray="4" />
-
-                  {/* Gradient area underneath line */}
-                  <path
-                    d={`${svgPath} L 580 130 L 20 130 Z`}
-                    fill="url(#profit-gradient-area)"
-                    opacity="0.12"
-                  />
-
-                  {/* Main Line */}
-                  <path
-                    d={svgPath}
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Data Points on Line */}
-                  {dailyProfits.map((d: any, idx) => {
-                    if (d.profit === 0) return null;
-                    const step = (600 - 40) / (dailyProfits.length - 1);
-                    const x = 20 + idx * step;
-                    const ratio = maxDailyProfit > 0 ? d.profit / maxDailyProfit : 0;
-                    const y = 150 - 20 - ratio * (150 - 40);
-
-                    return (
-                      <g key={idx} className="group/dot cursor-pointer">
-                        <circle
-                          cx={x}
-                          cy={y}
-                          r="5"
-                          fill="#10b981"
-                          stroke="#ffffff"
-                          strokeWidth="2.5"
-                          className="transition-all duration-150 hover:r-7"
-                        />
-                        <title>{selectedMonthYear === "الكل" ? `${d.label}: ${d.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س ربح` : `اليوم ${d.day}: ${d.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س ربح`}</title>
-                      </g>
-                    );
-                  })}
-
-                  <defs>
-                    <linearGradient id="profit-gradient-area" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" />
-                      <stop offset="100%" stopColor="#ffffff" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-
-              {/* Chart Labels */}
-              <div className="flex justify-between text-[10px] text-neutral-400 font-bold px-3">
-                {selectedMonthYear === "الكل" ? (
-                  <>
-                    <span>{dailyProfits[0]?.label || ""}</span>
-                    <span>{dailyProfits[Math.floor(dailyProfits.length / 2)]?.label || ""}</span>
-                    <span>{dailyProfits[dailyProfits.length - 1]?.label || ""}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>1 {selectedMonthYear.split(" ")[0]}</span>
-                    <span>15 {selectedMonthYear.split(" ")[0]}</span>
-                    <span>{dailyProfits.length} {selectedMonthYear.split(" ")[0]}</span>
-                  </>
-                )}
-              </div>
-            </div>
+            <SmoothAreaChart
+              data={dailyProfits.map((d: any) => ({
+                label: selectedMonthYear === "الكل" ? d.label : `${d.day} ${selectedMonthYear.split(" ")[0]}`,
+                value: d.profit,
+                count: d.count,
+              }))}
+              lineColor="#059669"
+              gradientColor="#10b981"
+              height={180}
+              metricLabel="أرباح اليوم"
+              valueFormatter={(v) => `${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س`}
+            />
           )}
         </div>
 
