@@ -79,6 +79,16 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
     return date.toLocaleString(locale, { month: "long", year: "numeric" });
   };
 
+  const [selectedProvider, setSelectedProvider] = useState<string>("الكل");
+
+  // Filter operations by selected provider first
+  const filteredOperations = useMemo(() => {
+    if (selectedProvider === "الكل") {
+      return operations;
+    }
+    return operations.filter((op) => op.provider === selectedProvider);
+  }, [operations, selectedProvider]);
+
   // Map each unique month label to a sample date of that month
   const monthLabelMap = useMemo(() => {
     const mapping: { [label: string]: Date } = {};
@@ -86,7 +96,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
     
     mapping[getLabelForDate(now)] = now;
 
-    operations.forEach(op => {
+    filteredOperations.forEach(op => {
       if (op.date) {
         const d = new Date(op.date);
         if (!isNaN(d.getTime())) {
@@ -99,7 +109,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
     });
 
     return mapping;
-  }, [operations, activeProject?.calendarSystem]);
+  }, [filteredOperations, activeProject?.calendarSystem]);
 
   // Dynamically generate list of months from available operations + current month
   const availableMonths = useMemo(() => {
@@ -163,15 +173,15 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
   // Filter operations for selected month
   const monthlyOperations = useMemo(() => {
     if (selectedMonthYear === "الكل") {
-      return operations;
+      return filteredOperations;
     }
-    return operations.filter(op => {
+    return filteredOperations.filter(op => {
       if (!op.date) return false;
       const d = new Date(op.date);
       if (isNaN(d.getTime())) return false;
       return getLabelForDate(d) === selectedMonthYear;
     });
-  }, [operations, selectedMonthYear, monthLabelMap, activeProject?.calendarSystem]);
+  }, [filteredOperations, selectedMonthYear, monthLabelMap, activeProject?.calendarSystem]);
 
   // Aggregate monthly stats
   const stats = useMemo(() => {
@@ -235,7 +245,6 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
 
     if (selectedMonthYear === "الكل") {
       // Group by month label from availableMonths (excluding "الكل")
-      // To keep newest at the right on the chart, let's reverse the availableMonths (excluding "الكل")
       const months = [...availableMonths].filter(m => m !== "الكل").reverse();
       
       if (months.length === 0) return [];
@@ -245,7 +254,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
         let sales = 0;
         let orders = 0;
         
-        operations.forEach(op => {
+        filteredOperations.forEach(op => {
           if (!op.date) return;
           const d = new Date(op.date);
           if (!isNaN(d.getTime()) && getLabelForDate(d) === m) {
@@ -306,7 +315,7 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
     });
 
     return daysArray;
-  }, [operations, monthlyOperations, selectedMonthYear, availableMonths, monthLabelMap, activeProject?.calendarSystem]);
+  }, [filteredOperations, monthlyOperations, selectedMonthYear, availableMonths, monthLabelMap, activeProject?.calendarSystem]);
 
   // SVG dimensions & path builders
   const maxDailyProfit = useMemo(() => {
@@ -335,6 +344,67 @@ export function ProfitsDashboard({ operations, activeProject }: ProfitsDashboard
   return (
     <div className="space-y-6" id="profits-dashboard-component" dir="rtl">
       
+      {/* Full Page Top Provider Filter (الكل - إمكان - تابي - تمارا) */}
+      <div className="bg-white p-3.5 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.015)] space-y-2.5">
+        <div className="flex items-center justify-between px-2 pt-0.5">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Building className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-neutral-900">فلتر صفحة الأرباح حسب مزود الخدمة</h3>
+              <p className="text-[10px] text-neutral-500 font-medium">تصفية التقرير الكامل حسب شركة التمويل المحددة</p>
+            </div>
+          </div>
+          {selectedProvider !== "الكل" && (
+            <button
+              onClick={() => setSelectedProvider("الكل")}
+              className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl transition-all cursor-pointer"
+            >
+              إعادة الضبط
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { id: "الكل", label: "الكل", count: operations.length, badgeBg: "bg-neutral-100 text-neutral-800", activeClass: "border-neutral-900 bg-neutral-900 text-white shadow-md" },
+            { id: "إمكان", label: "إمكان", count: operations.filter(o => o.provider === "إمكان").length, badgeBg: "bg-neutral-200 text-neutral-900", activeClass: "border-neutral-900 bg-neutral-900 text-white shadow-md" },
+            { id: "تابي", label: "تابي", count: operations.filter(o => o.provider === "تابي").length, badgeBg: "bg-[#05ffd2]/30 text-emerald-950", activeClass: "border-emerald-600 bg-emerald-600 text-white shadow-md" },
+            { id: "تمارا", label: "تمارا", count: operations.filter(o => o.provider === "تمارا").length, badgeBg: "bg-amber-100 text-amber-900", activeClass: "border-amber-500 bg-amber-500 text-white shadow-md" },
+          ].map((item) => {
+            const isSelected = selectedProvider === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedProvider(item.id)}
+                className={`flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-black transition-all cursor-pointer select-none ${
+                  isSelected
+                    ? item.activeClass
+                    : "border-neutral-100 bg-neutral-50/70 hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {item.id === "إمكان" && <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? "bg-white" : "bg-neutral-950"}`} />}
+                  {item.id === "تابي" && <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? "bg-white" : "bg-[#05ffd2]"}`} />}
+                  {item.id === "تمارا" && <span className={`w-2.5 h-2.5 rounded-full ${isSelected ? "bg-white" : "bg-[#ffaa47]"}`} />}
+                  {item.id === "الكل" && <Sparkles className={`w-3.5 h-3.5 ${isSelected ? "text-amber-300" : "text-amber-500"}`} />}
+                  <span>{item.label}</span>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold ${
+                  isSelected 
+                    ? "bg-white/20 text-white" 
+                    : item.badgeBg
+                }`}>
+                  {item.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Month Navigation Panel */}
       <div className="bg-white p-4 rounded-3xl border border-neutral-100 shadow-[0px_4px_20px_rgba(0,0,0,0.01)] flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
